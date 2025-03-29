@@ -1,11 +1,11 @@
-import http from "http";
+import initDatabase from "../../src/init-database";
+import BaseLogger from "../../src/utils/logger";
+import "./envVariables";
 import path from "path";
-import BaseLogger from "./utils/logger";
-import createApp from "./app";
-import createControllers from "./createControllers";
-import initDatabase from "./init-database";
+import createApp from "../../src/app";
+import createControllers from "../../src/createControllers";
 
-export default async function createServer() {
+export default async function setupTestEnvironment() {
   const logger = new BaseLogger(path.join(__dirname, "app.log"));
   await initDatabase({
     logger,
@@ -17,9 +17,12 @@ export default async function createServer() {
       database: process.env.POSTGRES_DB!,
     },
   });
+
   const controllers = await createControllers({ logger });
   const app = await createApp(logger, controllers);
-  const server = http.createServer(app);
 
-  return server;
+  return {
+    logger,
+    app,
+  };
 }

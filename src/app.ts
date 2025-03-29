@@ -3,7 +3,7 @@ import BaseLogger from "./utils/logger";
 import usersRouter from "./routes/users";
 import "express-async-errors";
 import { Controllers } from "./createControllers";
-import { apiErrorMiddleware } from "./utils/apiError";
+import { apiErrorMiddleware } from "./middleware/apiError";
 
 export default async function createApp(
   logger: BaseLogger,

@@ -1,13 +1,6 @@
 import { Model, DataTypes, Sequelize } from "sequelize";
 
 class UserDeck extends Model {
-  public id!: string;
-  public userId!: string;
-  public name!: string;
-  public description?: string;
-  public createdAt!: Date;
-  public updatedAt!: Date;
-
   static initModel(sequelize: Sequelize) {
     UserDeck.init(
       {

@@ -1,90 +1,56 @@
-import { Model, DataTypes, Sequelize } from "sequelize";
+import { DataTypes, Model, sql } from "@sequelize/core";
+import {
+  Attribute,
+  Default,
+  NotNull,
+  PrimaryKey,
+  Table,
+  Unique,
+} from "@sequelize/core/decorators-legacy";
+import type {
+  InferAttributes,
+  InferCreationAttributes,
+  CreationOptional,
+} from "@sequelize/core";
 
-class User extends Model {
-  public id!: string;
-  public displayName!: string;
-  public username!: string;
-  public password!: string;
-  public createdAt!: Date;
-  public updatedAt!: Date;
+@Table({
+  tableName: "users",
+  timestamps: true,
+  underscored: true,
+})
+export class User extends Model<
+  InferAttributes<User>,
+  InferCreationAttributes<User>
+> {
+  @PrimaryKey
+  @Attribute(DataTypes.UUID)
+  @Default(sql`gen_random_uuid()`)
+  @NotNull
+  declare id: CreationOptional<string>;
 
-  static initModel(sequelize: Sequelize) {
-    User.init(
-      {
-        id: {
-          type: DataTypes.UUID,
-          defaultValue: DataTypes.UUIDV4,
-          primaryKey: true,
-          field: "id",
-        },
-        displayName: {
-          type: DataTypes.STRING(255),
-          allowNull: false,
-          field: "display_name",
-        },
-        username: {
-          type: DataTypes.STRING(255),
-          allowNull: false,
-          unique: true,
-          field: "username",
-        },
-        password: {
-          type: DataTypes.STRING(255),
-          allowNull: false,
-          field: "password",
-        },
-        createdAt: {
-          type: DataTypes.DATE,
-          defaultValue: DataTypes.NOW,
-          field: "created_at",
-        },
-        updatedAt: {
-          type: DataTypes.DATE,
-          defaultValue: DataTypes.NOW,
-          field: "updated_at",
-        },
-      },
-      {
-        sequelize,
-        tableName: "users",
-      },
-    );
-  }
+  @NotNull
+  @Unique
+  @Attribute(DataTypes.STRING(255))
+  declare displayName: string;
 
-  static async createUser(
-    displayName: string,
-    username: string,
-    password: string,
-  ) {
-    return await User.create({ displayName, username, password });
-  }
+  @NotNull
+  @Unique
+  @Attribute(DataTypes.STRING(255))
+  declare username: string;
 
-  static async findUserById(id: string) {
-    return await User.findByPk(id);
-  }
+  @NotNull
+  @Attribute(DataTypes.STRING(255))
+  declare password: string;
 
-  static async updateUser(
-    id: string,
-    updates: Partial<Omit<User, "id" | "createdAt" | "updatedAt">>,
-  ) {
-    const user = await User.findByPk(id);
-    if (user) {
-      return await user.update(updates);
-    }
-    return null;
-  }
+  @NotNull
+  @Attribute(DataTypes.DATE)
+  @Default(sql`CURRENT_TIMESTAMP`)
+  declare createdAt: CreationOptional<Date>;
 
-  static async getAllUsers() {
-    return await User.findAll();
-  }
-
-  static async deleteUser(id: string) {
-    const user = await User.findByPk(id);
-    if (user) {
-      return await user.destroy();
-    }
-    return null;
-  }
+  @NotNull
+  @Attribute(DataTypes.DATE)
+  @Default(sql`CURRENT_TIMESTAMP`)
+  declare updatedAt: CreationOptional<Date>;
 }
 
 export default User;

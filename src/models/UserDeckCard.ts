@@ -1,10 +1,6 @@
 import { Model, DataTypes, Sequelize } from "sequelize";
 
 class UserDeckCard extends Model {
-  public cardId!: number;
-  public userDeckId!: string;
-  public quantity!: number;
-
   static initModel(sequelize: Sequelize) {
     UserDeckCard.init(
       {

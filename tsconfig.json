@@ -1,15 +1,18 @@
 {
   "compilerOptions": {
     "target": "es2022",
-    "module": "CommonJS", 
-    "rootDir": "./src",
+    "module": "NodeNext", 
+    "moduleResolution": "NodeNext",
     "esModuleInterop": true,
     "strict": true,
     "skipLibCheck": true,
-    "moduleResolution": "node",
     "outDir": "./dist",
     "sourceMap": false,
-
+    "types": ["jest"],
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "isolatedModules": true
   },
+  "include": ["src/**/*.ts", "tests/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

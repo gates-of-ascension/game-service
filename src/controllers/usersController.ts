@@ -1,6 +1,7 @@
 import BaseLogger from "../utils/logger";
-import User from "../models/user";
-import { ApiError } from "../utils/apiError";
+import User from "../models/User";
+import { ApiError } from "../middleware/apiError";
+import { formatSequelizeError } from "../utils/sequelizeErrorHelper";
 
 export default class UsersController {
   constructor(private readonly logger: BaseLogger) {}
@@ -8,12 +9,10 @@ export default class UsersController {
   async getUserById(userId: string) {
     let user;
     try {
-      user = await User.findUserById(userId);
+      user = await User.findByPk(userId);
     } catch (error) {
-      throw new ApiError(
-        500,
-        `Failed to get user ${userId} due to error: (${error})`,
-      );
+      const errorResponse = formatSequelizeError(error as Error, this.logger);
+      throw new ApiError(errorResponse.status, errorResponse.message);
     }
 
     if (!user) {
@@ -21,5 +20,17 @@ export default class UsersController {
     }
 
     return user;
+  }
+
+  async createUser(displayName: string, username: string, password: string) {
+    let newUser;
+    try {
+      newUser = await User.create({ displayName, username, password });
+    } catch (error) {
+      const errorResponse = formatSequelizeError(error as Error, this.logger);
+      throw new ApiError(errorResponse.status, errorResponse.message);
+    }
+
+    return newUser;
   }
 }
