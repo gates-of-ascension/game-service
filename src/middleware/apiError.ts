@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import BaseLogger from "./logger";
+import BaseLogger from "../utils/logger";
 
 export class ApiError extends Error {
   public status: number;

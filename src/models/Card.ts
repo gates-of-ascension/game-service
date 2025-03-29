@@ -1,13 +1,6 @@
 import { Model, DataTypes, Sequelize } from "sequelize";
 
 class Card extends Model {
-  public id!: number;
-  public name!: string;
-  public description?: string;
-  public type!: string;
-  public createdAt!: Date;
-  public updatedAt!: Date;
-
   static initModel(sequelize: Sequelize) {
     Card.init(
       {
