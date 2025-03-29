@@ -1,47 +1,51 @@
-import { Model, DataTypes, Sequelize } from "sequelize";
+import { DataTypes, Model, sql } from "@sequelize/core";
+import {
+  Attribute,
+  Default,
+  NotNull,
+  PrimaryKey,
+  Table,
+  Unique,
+} from "@sequelize/core/decorators-legacy";
+import type {
+  InferAttributes,
+  InferCreationAttributes,
+  CreationOptional,
+} from "@sequelize/core";
 
-class Card extends Model {
-  static initModel(sequelize: Sequelize) {
-    Card.init(
-      {
-        id: {
-          type: DataTypes.INTEGER,
-          autoIncrement: true,
-          primaryKey: true,
-          field: "id",
-        },
-        name: {
-          type: DataTypes.STRING(255),
-          allowNull: false,
-          field: "name",
-        },
-        description: {
-          type: DataTypes.TEXT,
-          allowNull: true,
-          field: "description",
-        },
-        type: {
-          type: DataTypes.STRING(255),
-          allowNull: false,
-          field: "type",
-        },
-        createdAt: {
-          type: DataTypes.DATE,
-          defaultValue: DataTypes.NOW,
-          field: "created_at",
-        },
-        updatedAt: {
-          type: DataTypes.DATE,
-          defaultValue: DataTypes.NOW,
-          field: "updated_at",
-        },
-      },
-      {
-        sequelize,
-        tableName: "cards",
-      },
-    );
-  }
+@Table({
+  tableName: "cards",
+  timestamps: true,
+  underscored: true,
+})
+class Card extends Model<InferAttributes<Card>, InferCreationAttributes<Card>> {
+  @PrimaryKey
+  @Attribute(DataTypes.INTEGER)
+  @NotNull
+  @Default(DataTypes.INTEGER)
+  declare id: CreationOptional<number>;
+
+  @NotNull
+  @Unique
+  @Attribute(DataTypes.STRING(255))
+  declare name: string;
+
+  @Attribute(DataTypes.TEXT)
+  declare description: CreationOptional<string>;
+
+  @NotNull
+  @Attribute(DataTypes.STRING(255))
+  declare type: string;
+
+  @NotNull
+  @Attribute(DataTypes.DATE)
+  @Default(sql`CURRENT_TIMESTAMP`)
+  declare createdAt: CreationOptional<Date>;
+
+  @NotNull
+  @Attribute(DataTypes.DATE)
+  @Default(sql`CURRENT_TIMESTAMP`)
+  declare updatedAt: CreationOptional<Date>;
 }
 
 export default Card;

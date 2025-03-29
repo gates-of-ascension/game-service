@@ -1,47 +1,52 @@
-import { Model, DataTypes, Sequelize } from "sequelize";
+import { DataTypes, Model, sql } from "@sequelize/core";
+import {
+  Attribute,
+  Default,
+  NotNull,
+  PrimaryKey,
+  Table,
+} from "@sequelize/core/decorators-legacy";
+import type {
+  InferAttributes,
+  InferCreationAttributes,
+  CreationOptional,
+} from "@sequelize/core";
 
-class UserDeck extends Model {
-  static initModel(sequelize: Sequelize) {
-    UserDeck.init(
-      {
-        id: {
-          type: DataTypes.UUID,
-          defaultValue: DataTypes.UUIDV4,
-          primaryKey: true,
-          field: "id",
-        },
-        userId: {
-          type: DataTypes.UUID,
-          allowNull: false,
-          field: "user_id",
-        },
-        name: {
-          type: DataTypes.STRING(255),
-          allowNull: false,
-          field: "name",
-        },
-        description: {
-          type: DataTypes.TEXT,
-          allowNull: true,
-          field: "description",
-        },
-        createdAt: {
-          type: DataTypes.DATE,
-          defaultValue: DataTypes.NOW,
-          field: "created_at",
-        },
-        updatedAt: {
-          type: DataTypes.DATE,
-          defaultValue: DataTypes.NOW,
-          field: "updated_at",
-        },
-      },
-      {
-        sequelize,
-        tableName: "user_decks",
-      },
-    );
-  }
+@Table({
+  tableName: "user_decks",
+  timestamps: true,
+  underscored: true,
+})
+class UserDeck extends Model<
+  InferAttributes<UserDeck>,
+  InferCreationAttributes<UserDeck>
+> {
+  @PrimaryKey
+  @Attribute(DataTypes.UUID)
+  @Default(DataTypes.UUIDV4)
+  @NotNull
+  declare id: CreationOptional<string>;
+
+  @NotNull
+  @Attribute(DataTypes.UUID)
+  declare userId: string;
+
+  @NotNull
+  @Attribute(DataTypes.STRING(255))
+  declare name: string;
+
+  @Attribute(DataTypes.TEXT)
+  declare description: CreationOptional<string>;
+
+  @NotNull
+  @Attribute(DataTypes.DATE)
+  @Default(sql`CURRENT_TIMESTAMP`)
+  declare createdAt: CreationOptional<Date>;
+
+  @NotNull
+  @Attribute(DataTypes.DATE)
+  @Default(sql`CURRENT_TIMESTAMP`)
+  declare updatedAt: CreationOptional<Date>;
 }
 
 export default UserDeck;

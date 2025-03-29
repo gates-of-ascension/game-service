@@ -26,7 +26,7 @@ export default async function initDatabase(options: InitDatabaseOptions) {
     user: databaseInfo.user,
     password: databaseInfo.password,
     database: databaseInfo.database,
-    models: [User],
+    models: [User, UserDeck, UserDeckCard, Card],
     schema: "public",
     logging: (sql) => logger.info(sql),
   });

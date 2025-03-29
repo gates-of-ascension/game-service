@@ -1,31 +1,36 @@
-import { Model, DataTypes, Sequelize } from "sequelize";
+import { DataTypes, Model } from "@sequelize/core";
+import {
+  Attribute,
+  Default,
+  NotNull,
+  Table,
+} from "@sequelize/core/decorators-legacy";
+import type {
+  InferAttributes,
+  InferCreationAttributes,
+  CreationOptional,
+} from "@sequelize/core";
 
-class UserDeckCard extends Model {
-  static initModel(sequelize: Sequelize) {
-    UserDeckCard.init(
-      {
-        cardId: {
-          type: DataTypes.INTEGER,
-          allowNull: false,
-          field: "card_id",
-        },
-        userDeckId: {
-          type: DataTypes.UUID,
-          allowNull: false,
-          field: "user_deck_id",
-        },
-        quantity: {
-          type: DataTypes.INTEGER,
-          defaultValue: 1,
-          field: "quantity",
-        },
-      },
-      {
-        sequelize,
-        tableName: "user_deck_cards",
-      },
-    );
-  }
+@Table({
+  tableName: "user_deck_cards",
+  timestamps: false,
+  underscored: true,
+})
+class UserDeckCard extends Model<
+  InferAttributes<UserDeckCard>,
+  InferCreationAttributes<UserDeckCard>
+> {
+  @NotNull
+  @Attribute(DataTypes.INTEGER)
+  declare cardId: number;
+
+  @NotNull
+  @Attribute(DataTypes.UUID)
+  declare userDeckId: string;
+
+  @Default(1)
+  @Attribute(DataTypes.INTEGER)
+  declare quantity: CreationOptional<number>;
 }
 
 export default UserDeckCard;
