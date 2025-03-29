@@ -1,4 +1,4 @@
-import initDatabase from "../../src/init-database";
+import initDatabase from "../../src/initDatabase";
 import BaseLogger from "../../src/utils/logger";
 import "./envVariables";
 import path from "path";

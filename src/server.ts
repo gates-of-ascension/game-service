@@ -3,7 +3,7 @@ import path from "path";
 import BaseLogger from "./utils/logger";
 import createApp from "./app";
 import createControllers from "./createControllers";
-import initDatabase from "./init-database";
+import initDatabase from "./initDatabase";
 
 export default async function createServer() {
   const logger = new BaseLogger(path.join(__dirname, "app.log"));
