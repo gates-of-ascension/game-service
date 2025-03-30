@@ -1,5 +1,6 @@
 import { UniqueConstraintError } from "sequelize";
 import BaseLogger from "./logger";
+import { ForeignKeyConstraintError } from "@sequelize/core";
 
 export function formatSequelizeError(error: Error, logger: BaseLogger) {
   const errorResponse = {
@@ -13,6 +14,11 @@ export function formatSequelizeError(error: Error, logger: BaseLogger) {
       .map((e) => e.message)
       .join(", ");
     errorResponse.status = 409;
+  } else if (error.name === "SequelizeForeignKeyConstraintError") {
+    const sequelizeForeignKeyConstraintError =
+      error as ForeignKeyConstraintError;
+    errorResponse.message = sequelizeForeignKeyConstraintError.message;
+    errorResponse.status = 404;
   } else {
     logger.warn(`Unmapped sequelize error: (${error})`);
   }

@@ -4,6 +4,9 @@ import { Express } from "express";
 import request from "supertest";
 import User from "../../src/models/User";
 import { v4 as uuidv4 } from "uuid";
+import UserDeckCard from "../../src/models/UserDeckCard";
+import UserDeck from "../../src/models/UserDeck";
+import Card from "../../src/models/Card";
 
 describe("Users", () => {
   let app: Express;
@@ -11,6 +14,10 @@ describe("Users", () => {
   beforeAll(async () => {
     const { app: testApp } = await setupTestEnvironment();
     app = testApp;
+    await UserDeckCard.destroy({ where: {} });
+    await UserDeck.destroy({ where: {} });
+    await Card.destroy({ where: {} });
+    await User.destroy({ where: {} });
   });
 
   beforeEach(async () => {
@@ -84,6 +91,11 @@ describe("Users", () => {
       expect(response.status).toBe(404);
     });
 
+    it("should return 400 if id is not a valid uuid", async () => {
+      const response = await request(app).get("/v1/users/invalid-uuid");
+      expect(response.status).toBe(400);
+    });
+
     it("should get a user by id", async () => {
       const user = await User.create({
         displayName: "John Doe",
@@ -94,6 +106,75 @@ describe("Users", () => {
       expect(response.status).toBe(200);
       expect(response.body.displayName).toBe("John Doe");
       expect(response.body.username).toBe("john.doe");
+    });
+  });
+
+  describe("PUT /v1/users/:id", () => {
+    it("should return 404 if user does not exist", async () => {
+      const response = await request(app).put(`/v1/users/${uuidv4()}`).send({
+        displayName: "Jane Doe",
+      });
+      expect(response.status).toBe(404);
+    });
+
+    it("should return 400 if no fields are provided", async () => {
+      const response = await request(app).put(`/v1/users/${uuidv4()}`);
+      expect(response.status).toBe(400);
+    });
+
+    it("should return 400 if id is not a valid uuid", async () => {
+      const response = await request(app).put("/v1/users/invalid-uuid").send({
+        displayName: "Jane Doe",
+      });
+      expect(response.status).toBe(400);
+    });
+
+    it("should update a user", async () => {
+      const user = await User.create({
+        displayName: "John Doe",
+        username: "john.doe",
+        password: "password",
+      });
+
+      const response = await request(app).put(`/v1/users/${user.id}`).send({
+        displayName: "Jane Doe",
+      });
+      expect(response.status).toBe(200);
+      expect(response.body.displayName).toBe("Jane Doe");
+
+      const updatedUser = await User.findOne({
+        where: { id: user.id },
+        raw: true,
+      });
+      expect(updatedUser?.displayName).toBe("Jane Doe");
+    });
+  });
+
+  describe("DELETE /v1/users/:id", () => {
+    it("should return 404 if user does not exist", async () => {
+      const response = await request(app).delete(`/v1/users/${uuidv4()}`);
+      expect(response.status).toBe(404);
+    });
+
+    it("should return 400 if id is not a valid uuid", async () => {
+      const response = await request(app).delete("/v1/users/invalid-uuid");
+      expect(response.status).toBe(400);
+    });
+
+    it("should delete a user", async () => {
+      const user = await User.create({
+        displayName: "John Doe",
+        username: "john.doe",
+        password: "password",
+      });
+
+      const response = await request(app).delete(`/v1/users/${user.id}`);
+      expect(response.status).toBe(200);
+
+      const deletedUser = await User.findOne({
+        where: { id: user.id },
+      });
+      expect(deletedUser).toBeNull();
     });
   });
 });

@@ -28,6 +28,9 @@ export default async function initDatabase(options: InitDatabaseOptions) {
     database: databaseInfo.database,
     models: [User, UserDeck, UserDeckCard, Card],
     schema: "public",
+    define: {
+      noPrimaryKey: true,
+    },
     logging: (sql) => logger.info(sql),
   });
   logger.info("Connecting to database...");

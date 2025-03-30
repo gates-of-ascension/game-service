@@ -2,6 +2,7 @@ import { DataTypes, Model, sql } from "@sequelize/core";
 import {
   Attribute,
   Default,
+  HasMany,
   NotNull,
   PrimaryKey,
   Table,
@@ -11,7 +12,9 @@ import type {
   InferAttributes,
   InferCreationAttributes,
   CreationOptional,
+  NonAttribute,
 } from "@sequelize/core";
+import UserDeckCard from "./UserDeckCard";
 
 @Table({
   tableName: "cards",
@@ -20,9 +23,8 @@ import type {
 })
 class Card extends Model<InferAttributes<Card>, InferCreationAttributes<Card>> {
   @PrimaryKey
-  @Attribute(DataTypes.INTEGER)
+  @Attribute({ type: DataTypes.INTEGER, autoIncrement: true })
   @NotNull
-  @Default(DataTypes.INTEGER)
   declare id: CreationOptional<number>;
 
   @NotNull
@@ -46,6 +48,9 @@ class Card extends Model<InferAttributes<Card>, InferCreationAttributes<Card>> {
   @Attribute(DataTypes.DATE)
   @Default(sql`CURRENT_TIMESTAMP`)
   declare updatedAt: CreationOptional<Date>;
+
+  @HasMany(() => UserDeckCard, "cardId")
+  declare userDeckCards?: NonAttribute<UserDeckCard[]>;
 }
 
 export default Card;

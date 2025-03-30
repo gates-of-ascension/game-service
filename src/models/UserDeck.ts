@@ -2,6 +2,7 @@ import { DataTypes, Model, sql } from "@sequelize/core";
 import {
   Attribute,
   Default,
+  HasMany,
   NotNull,
   PrimaryKey,
   Table,
@@ -10,7 +11,10 @@ import type {
   InferAttributes,
   InferCreationAttributes,
   CreationOptional,
+  NonAttribute,
 } from "@sequelize/core";
+import User from "./User";
+import UserDeckCard from "./UserDeckCard";
 
 @Table({
   tableName: "user_decks",
@@ -47,6 +51,10 @@ class UserDeck extends Model<
   @Attribute(DataTypes.DATE)
   @Default(sql`CURRENT_TIMESTAMP`)
   declare updatedAt: CreationOptional<Date>;
+  declare user: NonAttribute<User>;
+
+  @HasMany(() => UserDeckCard, "userDeckId")
+  declare userDeckCards?: NonAttribute<UserDeckCard[]>;
 }
 
 export default UserDeck;

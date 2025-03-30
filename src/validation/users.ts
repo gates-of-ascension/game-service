@@ -9,11 +9,14 @@ export const createUserSchema = {
 };
 
 export const updateUserSchema = {
+  params: Joi.object({
+    id: Joi.string().uuid().required(),
+  }),
   body: Joi.object({
     displayName: Joi.string().optional(),
     username: Joi.string().optional(),
     password: Joi.string().optional(),
-  }),
+  }).min(1),
 };
 
 export const getUserSchema = {

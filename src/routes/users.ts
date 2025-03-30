@@ -20,13 +20,34 @@ export default (usersController: UsersController) => {
 
   router.post("/v1/users", validate(createUserSchema), async (req, res) => {
     const { displayName, username, password } = req.body;
-    const user = await usersController.createUser(
+    const user = await usersController.createUser({
       displayName,
       username,
       password,
-    );
+    });
     res.status(201).json(user);
   });
+
+  router.put("/v1/users/:id", validate(updateUserSchema), async (req, res) => {
+    const userId = req.params.id;
+    const { displayName, username, password } = req.body;
+    const user = await usersController.updateUser(userId, {
+      displayName,
+      username,
+      password,
+    });
+    res.status(200).json(user);
+  });
+
+  router.delete(
+    "/v1/users/:id",
+    validate(deleteUserSchema),
+    async (req, res) => {
+      const userId = req.params.id;
+      await usersController.deleteUser(userId);
+      res.status(200).send();
+    },
+  );
 
   return router;
 };
