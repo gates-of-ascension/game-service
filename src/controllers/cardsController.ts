@@ -50,6 +50,22 @@ export default class CardsController {
     return newCard.toJSON();
   }
 
+  async bulkUpsertCards(requestBody: { cards: CreateCardRequestBody[] }) {
+    let newCards;
+
+    try {
+      newCards = await Card.bulkCreate(requestBody.cards, {
+        returning: true,
+        updateOnDuplicate: ["name", "type", "description"],
+      });
+    } catch (error) {
+      const errorResponse = formatSequelizeError(error as Error, this.logger);
+      throw new ApiError(errorResponse.status, errorResponse.message);
+    }
+
+    return newCards;
+  }
+
   async updateCard(cardId: string, requestBody: UpdateCardRequestBody) {
     let updatedCard;
     const updateCardOptions = {} as UpdateCardRequestBody;

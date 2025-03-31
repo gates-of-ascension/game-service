@@ -3,6 +3,7 @@ import {
   Attribute,
   Default,
   NotNull,
+  PrimaryKey,
   Table,
 } from "@sequelize/core/decorators-legacy";
 import type {
@@ -22,10 +23,12 @@ class UserDeckCard extends Model<
 > {
   @NotNull
   @Attribute(DataTypes.INTEGER)
+  @PrimaryKey
   declare cardId: number;
 
   @NotNull
   @Attribute(DataTypes.UUID)
+  @PrimaryKey
   declare userDeckId: string;
 
   @Default(1)

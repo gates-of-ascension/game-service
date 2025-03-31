@@ -10,9 +10,13 @@ import {
 } from "../types/userDecks";
 import UserDeckCard from "../models/UserDeckCard";
 import Card from "../models/Card";
+import { Op, Sequelize } from "@sequelize/core";
 
 export default class UserDecksController {
-  constructor(private readonly logger: BaseLogger) {}
+  constructor(
+    private readonly logger: BaseLogger,
+    private readonly sequelize: Sequelize,
+  ) {}
 
   async getUserDeckById(userDeckId: string) {
     let userDeck;
@@ -187,22 +191,41 @@ export default class UserDecksController {
   }
 
   async deleteUserDeck(userDeckId: string) {
-    let deletedUserDeck;
     try {
-      deletedUserDeck = await UserDeck.destroy({ where: { id: userDeckId } });
+      return await this.sequelize.transaction(async () => {
+        await UserDeckCard.destroy({
+          where: { userDeckId },
+        });
+
+        let deletedUserDeck;
+        try {
+          deletedUserDeck = await UserDeck.destroy({
+            where: { id: userDeckId },
+          });
+        } catch (error) {
+          const errorResponse = formatSequelizeError(
+            error as Error,
+            this.logger,
+          );
+          throw new ApiError(errorResponse.status, errorResponse.message);
+        }
+
+        if (!deletedUserDeck) {
+          throw new ApiError(
+            404,
+            `Could not find user deck with id (${userDeckId}), user deck not found`,
+          );
+        }
+
+        return deletedUserDeck;
+      });
     } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
       const errorResponse = formatSequelizeError(error as Error, this.logger);
       throw new ApiError(errorResponse.status, errorResponse.message);
     }
-
-    if (!deletedUserDeck) {
-      throw new ApiError(
-        404,
-        `Could not find user deck with id (${userDeckId}), user deck not found`,
-      );
-    }
-
-    return deletedUserDeck;
   }
 
   async deleteUserDeckCard(userDeckId: string, cardId: string) {
@@ -224,5 +247,48 @@ export default class UserDecksController {
     }
 
     return deletedUserDeckCard;
+  }
+
+  async saveUserDeckCards(
+    userDeckId: string,
+    userDeckCards: {
+      cardId: number;
+      quantity: number;
+    }[],
+  ) {
+    try {
+      return await this.sequelize.transaction(async () => {
+        const existingCardIds = userDeckCards.map(
+          (userDeckCard) => userDeckCard.cardId,
+        );
+
+        await UserDeckCard.destroy({
+          where: { userDeckId, cardId: { [Op.in]: existingCardIds } },
+        });
+
+        const userDeckCardsToCreate = userDeckCards.map((userDeckCard) => ({
+          ...userDeckCard,
+          userDeckId,
+        }));
+
+        const response = await UserDeckCard.bulkCreate(userDeckCardsToCreate, {
+          updateOnDuplicate: ["quantity"],
+          returning: true,
+        });
+
+        return response.map((userDeckCard) => {
+          return {
+            cardId: userDeckCard.cardId,
+            quantity: userDeckCard.quantity,
+          };
+        });
+      });
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      const errorResponse = formatSequelizeError(error as Error, this.logger);
+      throw new ApiError(errorResponse.status, errorResponse.message);
+    }
   }
 }

@@ -57,6 +57,56 @@ describe("Cards", () => {
     });
   });
 
+  describe("PUT /v1/cards", () => {
+    it("should return 400 if no cards are provided", async () => {
+      const response = await request(app).put("/v1/cards").send({
+        cards: [],
+      });
+      expect(response.status).toBe(400);
+    });
+
+    it("should create multiple cards and update existing cards", async () => {
+      await Card.create({
+        name: "Card 1",
+        type: "Card",
+        description: "Card 1 description",
+      });
+
+      const response = await request(app)
+        .put("/v1/cards")
+        .send({
+          cards: [
+            {
+              name: "Card 1",
+              type: "Card",
+              description: "Card 1 description CHANGED",
+            },
+            { name: "Card 2", type: "Card" },
+          ],
+        });
+      expect(response.status).toBe(200);
+
+      const card1 = await Card.findOne({
+        where: {
+          name: "Card 1",
+        },
+      });
+      expect(card1).not.toBeNull();
+      expect(card1?.name).toBe("Card 1");
+      expect(card1?.type).toBe("Card");
+      expect(card1?.description).toBe("Card 1 description CHANGED");
+
+      const card2 = await Card.findOne({
+        where: {
+          name: "Card 2",
+        },
+      });
+      expect(card2).not.toBeNull();
+      expect(card2?.name).toBe("Card 2");
+      expect(card2?.type).toBe("Card");
+      expect(card2?.description).toBeNull();
+    });
+  });
   describe("GET /v1/cards/:id", () => {
     it("should return 404 if card does not exist", async () => {
       const response = await request(app).get("/v1/cards/1");

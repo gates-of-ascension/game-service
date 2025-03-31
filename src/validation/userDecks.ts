@@ -62,3 +62,19 @@ export const deleteUserDeckCardSchema = {
     cardId: Joi.number().required(),
   }),
 };
+
+export const saveUserDeckCardsSchema = {
+  params: Joi.object({
+    id: Joi.string().uuid().required(),
+  }),
+  body: Joi.object({
+    cards: Joi.array()
+      .items(
+        Joi.object({
+          cardId: Joi.number().required(),
+          quantity: Joi.number().required(),
+        }),
+      )
+      .min(1),
+  }),
+};

@@ -39,4 +39,5 @@ export default async function initDatabase(options: InitDatabaseOptions) {
   logger.info("Database connected!");
   await sequelize.sync();
   logger.info("Database synced!");
+  return sequelize;
 }

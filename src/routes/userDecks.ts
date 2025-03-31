@@ -9,6 +9,7 @@ import {
   updateUserDeckCardSchema,
   createUserDeckCardSchema,
   getUserDeckCardsByUserDeckIdSchema,
+  saveUserDeckCardsSchema,
 } from "../validation/userDecks";
 import validate from "../middleware/validation";
 
@@ -94,13 +95,27 @@ export default (userDecksController: UserDecksController) => {
     },
   );
 
+  router.put(
+    "/v1/user_decks/:id/cards",
+    validate(saveUserDeckCardsSchema),
+    async (req, res) => {
+      const { cards } = req.body;
+      const userDeckId = req.params.id;
+      const userDeckCards = await userDecksController.saveUserDeckCards(
+        userDeckId,
+        cards,
+      );
+      res.status(200).json({ cards: userDeckCards });
+    },
+  );
+
   router.delete(
     "/v1/user_decks/:id",
     validate(deleteUserDeckSchema),
     async (req, res) => {
       const userDeckId = req.params.id;
       await userDecksController.deleteUserDeck(userDeckId);
-      res.status(200).json({ message: "User deck deleted" });
+      res.status(200).send();
     },
   );
 
