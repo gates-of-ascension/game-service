@@ -174,7 +174,7 @@ describe("User Decks", () => {
       expect(response.status).toBe(400);
     });
 
-    it("should return 200 if the user deck is deleted", async () => {
+    it("should return 200 if the user deck is deleted, and all user deck cards are deleted", async () => {
       const user = await User.create({
         displayName: "John Doe",
         username: "john.doe",
@@ -186,10 +186,30 @@ describe("User Decks", () => {
         userId: user.id,
       });
 
+      const card1 = await Card.create({
+        name: "My Card 1",
+        type: "My Type 1",
+      });
+      const card2 = await Card.create({
+        name: "My Card 2",
+        type: "My Type 2",
+      });
+      await UserDeckCard.create({
+        userDeckId: userDeck.id,
+        cardId: card1.id,
+      });
+      await UserDeckCard.create({
+        userDeckId: userDeck.id,
+        cardId: card2.id,
+      });
+
       const response = await request(app).delete(
         `/v1/user_decks/${userDeck.id}`,
       );
       expect(response.status).toBe(200);
+      expect(
+        await UserDeckCard.findAll({ where: { userDeckId: userDeck.id } }),
+      ).toEqual([]);
     });
   });
 });

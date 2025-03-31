@@ -7,7 +7,7 @@ import createControllers from "../../src/createControllers";
 
 export default async function setupTestEnvironment() {
   const logger = new BaseLogger(path.join(__dirname, "app.log"));
-  await initDatabase({
+  const sequelize = await initDatabase({
     logger,
     databaseInfo: {
       host: process.env.POSTGRES_HOST!,
@@ -18,7 +18,7 @@ export default async function setupTestEnvironment() {
     },
   });
 
-  const controllers = await createControllers({ logger });
+  const controllers = await createControllers({ logger, sequelize });
   const app = await createApp(logger, controllers);
 
   return {

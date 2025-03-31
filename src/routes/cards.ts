@@ -5,6 +5,7 @@ import {
   getCardSchema,
   updateCardSchema,
   deleteCardSchema,
+  bulkUpsertCardsSchema,
 } from "../validation/cards";
 import validate from "../middleware/validation";
 
@@ -29,6 +30,16 @@ export default (cardsController: CardsController) => {
     const card = await cardsController.updateCard(cardId, { name, type });
     res.status(200).json(card);
   });
+
+  router.put(
+    "/v1/cards/",
+    validate(bulkUpsertCardsSchema),
+    async (req, res) => {
+      const { cards } = req.body;
+      const response = await cardsController.bulkUpsertCards({ cards });
+      res.status(200).json({ cards: response });
+    },
+  );
 
   router.delete(
     "/v1/cards/:id",
