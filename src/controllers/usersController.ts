@@ -3,8 +3,14 @@ import User from "../models/User";
 import { ApiError } from "../middleware/apiError";
 import { formatSequelizeError } from "../utils/sequelizeErrorHelper";
 import { CreateUserRequestBody, UpdateUserRequestBody } from "../types/user";
+import bcrypt from "bcrypt";
+import { RedisClient } from "../initDatastores";
+
 export default class UsersController {
-  constructor(private readonly logger: BaseLogger) {}
+  constructor(
+    private readonly logger: BaseLogger,
+    private readonly redisClient: RedisClient,
+  ) {}
 
   async getUserById(userId: string) {
     let user;
@@ -22,33 +28,70 @@ export default class UsersController {
       );
     }
 
-    return user;
+    const returnUser = user.toJSON();
+
+    return {
+      id: returnUser.id,
+      displayName: returnUser.displayName,
+      username: returnUser.username,
+      createdAt: returnUser.createdAt,
+      updatedAt: returnUser.updatedAt,
+    };
   }
 
-  async createUser(requestBody: CreateUserRequestBody) {
-    let newUser;
+  async signup(requestBody: CreateUserRequestBody) {
     const createUserOptions = {} as CreateUserRequestBody;
 
-    if (requestBody.displayName) {
-      createUserOptions.displayName = requestBody.displayName;
-    }
-    if (requestBody.username) {
-      createUserOptions.username = requestBody.username;
-    }
-    if (requestBody.password) {
-      createUserOptions.password = requestBody.password;
-    }
+    createUserOptions.displayName = requestBody.displayName;
+    createUserOptions.username = requestBody.username;
+    createUserOptions.password = await bcrypt.hash(requestBody.password, 10);
 
+    let newUser;
     try {
-      newUser = (await User.create(createUserOptions, {
+      newUser = await User.create(createUserOptions, {
         returning: true,
-      })) as User;
+      });
     } catch (error) {
       const errorResponse = formatSequelizeError(error as Error, this.logger);
       throw new ApiError(errorResponse.status, errorResponse.message);
     }
 
-    return newUser.toJSON();
+    const returnUser = newUser.toJSON();
+
+    return {
+      id: returnUser.id,
+      displayName: returnUser.displayName,
+      username: returnUser.username,
+      createdAt: returnUser.createdAt,
+      updatedAt: returnUser.updatedAt,
+    };
+  }
+
+  async login(requestBody: { username: string; password: string }) {
+    const user = await User.findOne({
+      where: { username: requestBody.username },
+    });
+
+    if (!user) {
+      throw new ApiError(401, "Invalid username or password");
+    }
+
+    const isPasswordValid = await bcrypt.compare(
+      requestBody.password,
+      user.password,
+    );
+
+    if (!isPasswordValid) {
+      throw new ApiError(401, "Invalid username or password");
+    }
+
+    return {
+      id: user.id,
+      displayName: user.displayName,
+      username: user.username,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
   }
 
   async updateUser(userId: string, requestBody: UpdateUserRequestBody) {
@@ -82,7 +125,15 @@ export default class UsersController {
       );
     }
 
-    return updatedUser[1][0].toJSON();
+    const returnUser = updatedUser[1][0].toJSON();
+
+    return {
+      id: returnUser.id,
+      displayName: returnUser.displayName,
+      username: returnUser.username,
+      createdAt: returnUser.createdAt,
+      updatedAt: returnUser.updatedAt,
+    };
   }
 
   async deleteUser(userId: string) {

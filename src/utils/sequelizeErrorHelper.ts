@@ -1,6 +1,6 @@
-import { UniqueConstraintError } from "sequelize";
 import BaseLogger from "./logger";
 import { ForeignKeyConstraintError } from "@sequelize/core";
+import { UniqueConstraintError } from "@sequelize/core";
 
 export function formatSequelizeError(error: Error, logger: BaseLogger) {
   const errorResponse = {
