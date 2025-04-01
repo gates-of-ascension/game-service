@@ -5,8 +5,9 @@ import UserDeck from "./models/UserDeck";
 import UserDeckCard from "./models/UserDeckCard";
 import Card from "./models/Card";
 import BaseLogger from "./utils/logger";
+import { createClient } from "redis";
 
-export type InitDatabaseOptions = {
+export type InitPostgresDatabaseOptions = {
   logger: BaseLogger;
   databaseInfo: {
     host: string;
@@ -17,7 +18,19 @@ export type InitDatabaseOptions = {
   };
 };
 
-export default async function initDatabase(options: InitDatabaseOptions) {
+export type InitRedisOptions = {
+  logger: BaseLogger;
+  redisInfo: {
+    host: string;
+    port: number;
+  };
+};
+
+export type RedisClient = ReturnType<typeof createClient>;
+
+export async function initPostgresDatabase(
+  options: InitPostgresDatabaseOptions,
+) {
   const { logger, databaseInfo } = options;
   const sequelize = new Sequelize({
     dialect: PostgresDialect,
@@ -40,4 +53,16 @@ export default async function initDatabase(options: InitDatabaseOptions) {
   await sequelize.sync();
   logger.info("Database synced!");
   return sequelize;
+}
+
+export async function initRedisDatabase(options: InitRedisOptions) {
+  const { logger, redisInfo } = options;
+  const redisClient = createClient({
+    url: `redis://${redisInfo.host}:${redisInfo.port}`,
+  });
+  redisClient.on("error", (err) => logger.error(err));
+  logger.info("Connecting to Redis...");
+  await redisClient.connect();
+  logger.info("Redis connected!");
+  return redisClient as RedisClient;
 }

@@ -1,0 +1,30 @@
+version: "3.8"
+# Run locally via `docker-compose -p local-gates-of-ascension-backend up -d`
+
+services:
+  postgres:
+    container_name: postgres
+    image: postgres:17.4-bullseye
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: gates_of_ascension
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    depends_on:
+      - redis
+    restart: always
+  redis:
+    container_name: redis
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: always
+
+volumes:
+  postgres_data:
+  redis_data:

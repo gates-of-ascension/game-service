@@ -1,4 +1,7 @@
-import initDatabase from "../../src/initDatabase";
+import {
+  initPostgresDatabase,
+  initRedisDatabase,
+} from "../../src/initDatastores";
 import BaseLogger from "../../src/utils/logger";
 import "./envVariables";
 import path from "path";
@@ -7,7 +10,7 @@ import createControllers from "../../src/createControllers";
 
 export default async function setupTestEnvironment() {
   const logger = new BaseLogger(path.join(__dirname, "app.log"));
-  const sequelize = await initDatabase({
+  const sequelize = await initPostgresDatabase({
     logger,
     databaseInfo: {
       host: process.env.POSTGRES_HOST!,
@@ -18,8 +21,19 @@ export default async function setupTestEnvironment() {
     },
   });
 
-  const controllers = await createControllers({ logger, sequelize });
-  const app = await createApp(logger, controllers);
+  const redisClient = await initRedisDatabase({
+    logger,
+    redisInfo: {
+      host: process.env.REDIS_HOST!,
+      port: parseInt(process.env.REDIS_PORT!),
+    },
+  });
+  const controllers = await createControllers({
+    logger,
+    sequelize,
+    redisClient,
+  });
+  const app = await createApp(logger, controllers, redisClient);
 
   return {
     logger,
