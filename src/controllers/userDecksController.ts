@@ -4,8 +4,6 @@ import { ApiError } from "../middleware/apiError";
 import { formatSequelizeError } from "../utils/sequelizeErrorHelper";
 import {
   CreateUserDeckRequestBody,
-  CreateUserDeckCardRequestBody,
-  UpdateUserDeckCardRequestBody,
   UpdateUserDeckRequestBody,
 } from "../types/userDecks";
 import UserDeckCard from "../models/postgres/UserDeckCard";
@@ -92,34 +90,6 @@ export default class UserDecksController {
     return newUserDeck;
   }
 
-  async createUserDeckCard(
-    userDeckId: string,
-    requestBody: CreateUserDeckCardRequestBody,
-  ) {
-    let newUserDeckCard;
-    const createUserDeckCardOptions = {} as CreateUserDeckCardRequestBody;
-
-    if (requestBody.cardId) {
-      createUserDeckCardOptions.cardId = requestBody.cardId;
-    }
-
-    if (requestBody.quantity) {
-      createUserDeckCardOptions.quantity = requestBody.quantity;
-    }
-
-    try {
-      newUserDeckCard = await UserDeckCard.create({
-        ...createUserDeckCardOptions,
-        userDeckId,
-      });
-    } catch (error) {
-      const errorResponse = formatSequelizeError(error as Error, this.logger);
-      throw new ApiError(errorResponse.status, errorResponse.message);
-    }
-
-    return newUserDeckCard;
-  }
-
   async updateUserDeck(
     userDeckId: string,
     requestBody: UpdateUserDeckRequestBody,
@@ -153,41 +123,6 @@ export default class UserDecksController {
     }
 
     return updatedUserDeck[1][0].toJSON();
-  }
-
-  async updateUserDeckCard(
-    userDeckId: string,
-    cardId: string,
-    requestBody: UpdateUserDeckCardRequestBody,
-  ) {
-    let updatedUserDeckCard;
-    const updateUserDeckCardOptions = {} as UpdateUserDeckCardRequestBody;
-
-    if (requestBody.quantity) {
-      updateUserDeckCardOptions.quantity = requestBody.quantity;
-    }
-
-    try {
-      updatedUserDeckCard = (await UserDeckCard.update(
-        updateUserDeckCardOptions,
-        {
-          where: { userDeckId, cardId },
-          returning: true,
-        },
-      )) as [number, UserDeckCard[]];
-    } catch (error) {
-      const errorResponse = formatSequelizeError(error as Error, this.logger);
-      throw new ApiError(errorResponse.status, errorResponse.message);
-    }
-
-    if (updatedUserDeckCard[0] === 0) {
-      throw new ApiError(
-        404,
-        `Could not update user deck card with user deck id (${userDeckId}) and card id (${cardId}), user deck card not found`,
-      );
-    }
-
-    return updatedUserDeckCard[1][0].toJSON();
   }
 
   async deleteUserDeck(userDeckId: string) {
@@ -226,27 +161,6 @@ export default class UserDecksController {
       const errorResponse = formatSequelizeError(error as Error, this.logger);
       throw new ApiError(errorResponse.status, errorResponse.message);
     }
-  }
-
-  async deleteUserDeckCard(userDeckId: string, cardId: string) {
-    let deletedUserDeckCard;
-    try {
-      deletedUserDeckCard = await UserDeckCard.destroy({
-        where: { userDeckId, cardId },
-      });
-    } catch (error) {
-      const errorResponse = formatSequelizeError(error as Error, this.logger);
-      throw new ApiError(errorResponse.status, errorResponse.message);
-    }
-
-    if (!deletedUserDeckCard) {
-      throw new ApiError(
-        404,
-        `Could not find user deck card with user deck id (${userDeckId}) and card id (${cardId}), user deck card not found`,
-      );
-    }
-
-    return deletedUserDeckCard;
   }
 
   async saveUserDeckCards(

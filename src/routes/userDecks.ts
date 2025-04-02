@@ -5,9 +5,6 @@ import {
   updateUserDeckSchema,
   deleteUserDeckSchema,
   getUserDeckByIdSchema,
-  deleteUserDeckCardSchema,
-  updateUserDeckCardSchema,
-  createUserDeckCardSchema,
   getUserDeckCardsByUserDeckIdSchema,
   saveUserDeckCardsSchema,
 } from "../validation/userDecks";
@@ -51,20 +48,6 @@ export default (userDecksController: UserDecksController) => {
     },
   );
 
-  router.post(
-    "/v1/user_decks/:id/cards",
-    validate(createUserDeckCardSchema),
-    async (req, res) => {
-      const { cardId, quantity } = req.body;
-      const userDeckId = req.params.id;
-      const userDeckCard = await userDecksController.createUserDeckCard(
-        userDeckId,
-        { cardId, quantity },
-      );
-      res.status(201).json(userDeckCard);
-    },
-  );
-
   router.put(
     "/v1/user_decks/:id",
     validate(updateUserDeckSchema),
@@ -76,22 +59,6 @@ export default (userDecksController: UserDecksController) => {
         description,
       });
       res.status(200).json(userDeck);
-    },
-  );
-
-  router.put(
-    "/v1/user_decks/:id/cards/:cardId",
-    validate(updateUserDeckCardSchema),
-    async (req, res) => {
-      const { quantity } = req.body;
-      const userDeckId = req.params.id;
-      const cardId = req.params.cardId;
-      const userDeckCard = await userDecksController.updateUserDeckCard(
-        userDeckId,
-        cardId,
-        { quantity },
-      );
-      res.status(200).json(userDeckCard);
     },
   );
 
@@ -115,17 +82,6 @@ export default (userDecksController: UserDecksController) => {
     async (req, res) => {
       const userDeckId = req.params.id;
       await userDecksController.deleteUserDeck(userDeckId);
-      res.status(200).send();
-    },
-  );
-
-  router.delete(
-    "/v1/user_decks/:id/cards/:cardId",
-    validate(deleteUserDeckCardSchema),
-    async (req, res) => {
-      const userDeckId = req.params.id;
-      const cardId = req.params.cardId;
-      await userDecksController.deleteUserDeckCard(userDeckId, cardId);
       res.status(200).send();
     },
   );
