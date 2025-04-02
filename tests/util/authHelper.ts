@@ -1,6 +1,6 @@
 import { Express } from "express";
 import request from "supertest";
-import User from "../../src/models/User";
+import User from "../../src/models/postgres/User";
 
 export async function createUserAndLogin(app: Express, userData = {}) {
   const defaultUser = {

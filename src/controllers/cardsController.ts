@@ -1,5 +1,5 @@
 import BaseLogger from "../utils/logger";
-import Card from "../models/Card";
+import Card from "../models/postgres/Card";
 import { ApiError } from "../middleware/apiError";
 import { formatSequelizeError } from "../utils/sequelizeErrorHelper";
 import { CreateCardRequestBody, UpdateCardRequestBody } from "../types/cards";

@@ -2,10 +2,10 @@ import { expect } from "@jest/globals";
 import setupTestEnvironment from "../util/testSetup";
 import { Express } from "express";
 import request from "supertest";
-import User from "../../src/models/User";
-import UserDeckCard from "../../src/models/UserDeckCard";
-import UserDeck from "../../src/models/UserDeck";
-import Card from "../../src/models/Card";
+import User from "../../src/models/postgres/User";
+import UserDeckCard from "../../src/models/postgres/UserDeckCard";
+import UserDeck from "../../src/models/postgres/UserDeck";
+import Card from "../../src/models/postgres/Card";
 import bcrypt from "bcrypt";
 import { createUserAndLogin } from "../util/authHelper";
 
