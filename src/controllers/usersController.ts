@@ -1,5 +1,5 @@
 import BaseLogger from "../utils/logger";
-import User from "../models/User";
+import User from "../models/postgres/User";
 import { ApiError } from "../middleware/apiError";
 import { formatSequelizeError } from "../utils/sequelizeErrorHelper";
 import { CreateUserRequestBody, UpdateUserRequestBody } from "../types/user";

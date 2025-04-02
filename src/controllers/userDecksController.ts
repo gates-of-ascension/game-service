@@ -1,5 +1,5 @@
 import BaseLogger from "../utils/logger";
-import UserDeck from "../models/UserDeck";
+import UserDeck from "../models/postgres/UserDeck";
 import { ApiError } from "../middleware/apiError";
 import { formatSequelizeError } from "../utils/sequelizeErrorHelper";
 import {
@@ -8,8 +8,8 @@ import {
   UpdateUserDeckCardRequestBody,
   UpdateUserDeckRequestBody,
 } from "../types/userDecks";
-import UserDeckCard from "../models/UserDeckCard";
-import Card from "../models/Card";
+import UserDeckCard from "../models/postgres/UserDeckCard";
+import Card from "../models/postgres/Card";
 import { Op, Sequelize } from "@sequelize/core";
 
 export default class UserDecksController {

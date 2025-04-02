@@ -2,11 +2,11 @@ import { expect } from "@jest/globals";
 import setupTestEnvironment from "../util/testSetup";
 import { Express } from "express";
 import request from "supertest";
-import UserDeck from "../../src/models/UserDeck";
-import Card from "../../src/models/Card";
-import UserDeckCard from "../../src/models/UserDeckCard";
+import UserDeck from "../../src/models/postgres/UserDeck";
+import Card from "../../src/models/postgres/Card";
+import UserDeckCard from "../../src/models/postgres/UserDeckCard";
 import { v4 as uuidv4 } from "uuid";
-import User from "../../src/models/User";
+import User from "../../src/models/postgres/User";
 
 describe("User Deck Cards", () => {
   let app: Express;

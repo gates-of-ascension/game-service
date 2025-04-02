@@ -21,7 +21,7 @@ export default async function setupTestEnvironment() {
     },
   });
 
-  const redisClient = await initRedisDatabase({
+  const { redisClient, lobbyModel } = await initRedisDatabase({
     logger,
     redisInfo: {
       host: process.env.REDIS_HOST!,
@@ -32,6 +32,7 @@ export default async function setupTestEnvironment() {
     logger,
     sequelize,
     redisClient,
+    lobbyModel,
   });
   const app = await createApp(logger, controllers, redisClient);
 

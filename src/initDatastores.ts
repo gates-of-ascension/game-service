@@ -1,11 +1,13 @@
 import { Sequelize } from "@sequelize/core";
-import User from "./models/User";
+import User from "./models/postgres/User";
 import { PostgresDialect } from "@sequelize/postgres";
-import UserDeck from "./models/UserDeck";
-import UserDeckCard from "./models/UserDeckCard";
-import Card from "./models/Card";
+import UserDeck from "./models/postgres/UserDeck";
+import UserDeckCard from "./models/postgres/UserDeckCard";
+import Card from "./models/postgres/Card";
 import BaseLogger from "./utils/logger";
 import { createClient } from "redis";
+import { LobbyModel } from "./models/redis/LobbyModel";
+import { GameModel } from "./models/redis/GameModel";
 
 export type InitPostgresDatabaseOptions = {
   logger: BaseLogger;
@@ -64,5 +66,9 @@ export async function initRedisDatabase(options: InitRedisOptions) {
   logger.info("Connecting to Redis...");
   await redisClient.connect();
   logger.info("Redis connected!");
-  return redisClient as RedisClient;
+  return {
+    redisClient: redisClient as RedisClient,
+    lobbyModel: new LobbyModel(redisClient, logger),
+    gameModel: new GameModel(redisClient, logger),
+  };
 }

@@ -10,14 +10,19 @@ import userDecksRouter from "./routes/userDecks";
 import { RedisStore } from "connect-redis";
 import session from "express-session";
 import { v4 as uuidv4 } from "uuid";
-
+import lobbiesRouter from "./routes/lobbies";
 export default async function createApp(
   logger: BaseLogger,
   controllers: Controllers,
   redisClient: RedisClient,
 ) {
   const app = express();
-  const { usersController, cardsController, userDecksController } = controllers;
+  const {
+    usersController,
+    cardsController,
+    userDecksController,
+    lobbiesController,
+  } = controllers;
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: false }));
 
@@ -48,7 +53,7 @@ export default async function createApp(
   app.use("/", usersRouter(usersController));
   app.use("/", cardsRouter(cardsController));
   app.use("/", userDecksRouter(userDecksController));
-
+  app.use("/", lobbiesRouter(lobbiesController));
   app.use(apiErrorMiddleware(logger));
 
   return app;

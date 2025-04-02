@@ -60,7 +60,20 @@ export default (usersController: UsersController) => {
       req.session.displayName = response.displayName;
       req.session.createdAt = response.createdAt;
       req.session.updatedAt = response.updatedAt;
-      res.status(200).json({ message: "Logged in successfully" });
+
+      req.session.save((err) => {
+        if (err) {
+          throw new ApiError(500, "Error saving session");
+        }
+        res.status(200).json({
+          message: "Logged in successfully",
+          user: {
+            id: response.id,
+            username: response.username,
+            displayName: response.displayName,
+          },
+        });
+      });
     },
   );
 

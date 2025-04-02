@@ -4,6 +4,7 @@ import BaseLogger from "./utils/logger";
 import createApp from "./app";
 import createControllers from "./createControllers";
 import { initPostgresDatabase, initRedisDatabase } from "./initDatastores";
+import { setupSocketIO } from "./websockets/initSocket";
 
 export default async function createServer() {
   const logger = new BaseLogger(path.join(__dirname, "app.log"));
@@ -17,7 +18,7 @@ export default async function createServer() {
       database: process.env.POSTGRES_DB!,
     },
   });
-  const redisClient = await initRedisDatabase({
+  const { redisClient, lobbyModel, gameModel } = await initRedisDatabase({
     logger,
     redisInfo: {
       host: process.env.REDIS_HOST!,
@@ -28,9 +29,18 @@ export default async function createServer() {
     logger,
     sequelize,
     redisClient,
+    lobbyModel,
   });
   const app = await createApp(logger, controllers, redisClient);
   const server = http.createServer(app);
+
+  setupSocketIO({
+    httpServer: server,
+    logger,
+    lobbiesModel: lobbyModel,
+    gamesModel: gameModel,
+    redisClient,
+  });
 
   return server;
 }
