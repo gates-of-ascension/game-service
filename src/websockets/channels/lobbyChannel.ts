@@ -24,14 +24,18 @@ class LobbyChannel extends BaseChannel {
   }
 
   async registerEvents(socket: Socket) {
-    socket.on("create_lobby", async (lobby: Lobby, userId: string) => {
-      const { error } = createLobbySchema.validate({ lobby, userId });
+    socket.on("create_lobby", async (lobby: Lobby) => {
+      const { error } = createLobbySchema.validate(lobby);
       if (error) {
         this.logSocketError(socket, "validation_error", error.message);
         return;
       }
 
-      this.handleCreateLobby(socket, lobby, userId);
+      this.handleCreateLobby(socket, lobby);
+    });
+
+    socket.on("remove_current_lobby", () => {
+      this.removeUserSessionLobby(socket);
     });
 
     socket.on("join_lobby", (lobbyId: string, userId: string) => {
@@ -58,33 +62,54 @@ class LobbyChannel extends BaseChannel {
     });
   }
 
-  private async handleCreateLobby(
-    socket: Socket,
-    lobby: Lobby,
-    userId: string,
-  ) {
+  private async handleCreateLobby(socket: Socket, lobby: Lobby) {
     try {
-      const createdLobby = await this.lobbyModel.create(lobby, userId);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const session = (socket.request as any).session;
-
-      if (session.lobbyId) {
+      if (session.lobby) {
         this.logSocketError(
           socket,
-          "validation_error",
+          "client_error",
           "Cannot create lobby while in another lobby",
         );
         return;
       }
 
-      session.lobbyId = createdLobby.id;
+      const createdLobby = await this.lobbyModel.create(lobby, session.user.id);
+
+      session.lobby = createdLobby;
       this.joinRoom(socket, createdLobby.id);
       this.logger.debug(
         `User (${socket.id}) created lobby (${createdLobby.id})`,
       );
-      socket.emit("lobby-created", createdLobby);
+      socket.emit("lobby_created", createdLobby);
     } catch (error) {
-      socket.emit("error", `Error creating lobby: (${error})`);
+      socket.emit("server_error", `Error creating lobby: (${error})`);
+    }
+  }
+
+  private async removeUserSessionLobby(socket: Socket) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const session = (socket.request as any).session;
+    if (session.lobby) {
+      try {
+        await this.lobbyModel.removeUser(session.lobby.id, session.user.id);
+      } catch (error) {
+        const err = error as Error;
+        this.logSocketError(
+          socket,
+          "server_error",
+          `Cannot remove user from lobby: (${err.message})`,
+        );
+      }
+      session.lobby = undefined;
+      socket.emit("user_session_lobby_removed");
+    } else {
+      this.logSocketError(
+        socket,
+        "client_error",
+        "Cannot remove lobby, user is not in a lobby",
+      );
     }
   }
 

@@ -36,6 +36,7 @@ export class LobbyModel extends BaseRedisModel<Lobby> {
     const lobby: Lobby = {
       ...data,
       id: uuidv4(),
+      ownerId: userId,
       users: [
         { id: userId, username: userId, ready: false, joinedAt: Date.now() },
       ],
@@ -148,15 +149,19 @@ export class LobbyModel extends BaseRedisModel<Lobby> {
 
     if (lobby.users.length === 0) {
       this.logger.warn(
-        `Lobby with id (${lobbyId}) was already empty, deleting...`,
+        `Lobby with id (${lobbyId}) is now empty, deleting lobby...`,
       );
       await this.delete(lobbyId);
     } else if (lobby.ownerId === userId) {
       this.logger.info(
         `Lobby with id (${lobbyId}) owner (${userId}) left, selecting new owner...`,
       );
-      lobby.ownerId = lobby.users[0].id;
-      await this.update(lobbyId, lobby, userId);
+      if (lobby.users.length === 1) {
+        lobby.ownerId = lobby.users[0].id;
+        await this.update(lobbyId, lobby, userId);
+      } else {
+        await this.delete(lobbyId);
+      }
     } else {
       await this.update(lobbyId, lobby, userId);
     }

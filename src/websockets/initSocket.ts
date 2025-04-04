@@ -66,6 +66,11 @@ export function setupSocketIO(params: {
   io.on("connection", (socket) => {
     const userId = socket.data.userId;
 
+    const session = (socket.request as any).session;
+    if (session.lobby) {
+      socket.join(session.lobby.id);
+    }
+
     if (!userSocketMap.has(userId)) {
       userSocketMap.set(userId, []);
     }
