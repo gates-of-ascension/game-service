@@ -8,24 +8,18 @@ import {
   userLoginSchema,
 } from "../validation/users";
 import validate from "../middleware/validation";
-import authenticate from "../middleware/authenticate";
+import { createAuthMiddleware } from "../middleware/authenticate";
 import { ApiError } from "../middleware/apiError";
 
 export default (usersController: UsersController) => {
   const router = Router();
 
   router.get(
-    "/v1/users/:id",
-    authenticate,
+    "/v1/users/:userId",
+    createAuthMiddleware({ checkAuthentication: true, checkUserId: true }),
     validate(getUserSchema),
     async (req, res) => {
-      const userId = req.params.id;
-      if (userId !== req.session.userId) {
-        throw new ApiError(
-          403,
-          "You are not authorized to access this resource.",
-        );
-      }
+      const userId = req.params.userId;
       const response = await usersController.getUserById(userId);
 
       res.status(200).json(response);
@@ -55,11 +49,9 @@ export default (usersController: UsersController) => {
         username,
         password,
       });
-      req.session.userId = response.id;
-      req.session.username = response.username;
-      req.session.displayName = response.displayName;
-      req.session.createdAt = response.createdAt;
-      req.session.updatedAt = response.updatedAt;
+
+      req.session.user = response.user;
+      req.session.userDeckIds = response.userDecksIds;
 
       req.session.save((err) => {
         if (err) {
@@ -68,9 +60,9 @@ export default (usersController: UsersController) => {
         res.status(200).json({
           message: "Logged in successfully",
           user: {
-            id: response.id,
-            username: response.username,
-            displayName: response.displayName,
+            id: response.user.id,
+            username: response.user.username,
+            displayName: response.user.displayName,
           },
         });
       });
@@ -78,17 +70,11 @@ export default (usersController: UsersController) => {
   );
 
   router.put(
-    "/v1/users/:id",
-    authenticate,
+    "/v1/users/:userId",
+    createAuthMiddleware({ checkAuthentication: true, checkUserId: true }),
     validate(updateUserSchema),
     async (req, res) => {
-      const userId = req.params.id;
-      if (userId !== req.session.userId) {
-        throw new ApiError(
-          403,
-          "You are not authorized to access this resource.",
-        );
-      }
+      const userId = req.params.userId;
       const { displayName, username, password } = req.body;
       const response = await usersController.updateUser(userId, {
         displayName,
@@ -100,17 +86,11 @@ export default (usersController: UsersController) => {
   );
 
   router.delete(
-    "/v1/users/:id",
-    authenticate,
+    "/v1/users/:userId",
+    createAuthMiddleware({ checkAuthentication: true, checkUserId: true }),
     validate(deleteUserSchema),
     async (req, res) => {
-      const userId = req.params.id;
-      if (userId !== req.session.userId) {
-        throw new ApiError(
-          403,
-          "You are not authorized to access this resource.",
-        );
-      }
+      const userId = req.params.userId;
       await usersController.deleteUser(userId);
       res.status(200).send();
     },

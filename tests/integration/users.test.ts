@@ -8,17 +8,22 @@ import UserDeck from "../../src/models/postgres/UserDeck";
 import Card from "../../src/models/postgres/Card";
 import bcrypt from "bcrypt";
 import { createUserAndLogin } from "../util/authHelper";
+import { RedisClient } from "../../src/initDatastores";
 
 describe("Users", () => {
   let app: Express;
+  let redisClient: RedisClient;
 
   beforeAll(async () => {
-    const { app: testApp } = await setupTestEnvironment();
+    const { app: testApp, redisClient: testRedisClient } =
+      await setupTestEnvironment();
     app = testApp;
+    redisClient = testRedisClient;
     await UserDeckCard.destroy({ where: {} });
     await UserDeck.destroy({ where: {} });
     await Card.destroy({ where: {} });
     await User.destroy({ where: {} });
+    await redisClient.flushAll();
   });
 
   beforeEach(async () => {
@@ -124,13 +129,6 @@ describe("Users", () => {
       expect(response.status).toBe(403);
     });
 
-    it("should return 400 if id is not a valid uuid", async () => {
-      const { agent } = await createUserAndLogin(app);
-
-      const response = await agent.get("/v1/users/invalid-uuid");
-      expect(response.status).toBe(400);
-    });
-
     it("should get a user's own data when authenticated", async () => {
       const { agent, user } = await createUserAndLogin(app);
 
@@ -178,15 +176,6 @@ describe("Users", () => {
       expect(response.status).toBe(400);
     });
 
-    it("should return 400 if id is not a valid uuid", async () => {
-      const { agent } = await createUserAndLogin(app);
-
-      const response = await agent.put("/v1/users/invalid-uuid").send({
-        displayName: "Jane Doe",
-      });
-      expect(response.status).toBe(400);
-    });
-
     it("should update a user's own data when authenticated", async () => {
       const { agent, user } = await createUserAndLogin(app);
 
@@ -226,13 +215,6 @@ describe("Users", () => {
 
       const response = await agent.delete(`/v1/users/${otherUser.id}`);
       expect(response.status).toBe(403);
-    });
-
-    it("should return 400 if id is not a valid uuid", async () => {
-      const { agent } = await createUserAndLogin(app);
-
-      const response = await agent.delete("/v1/users/invalid-uuid");
-      expect(response.status).toBe(400);
     });
 
     it("should delete a user's own data when authenticated", async () => {

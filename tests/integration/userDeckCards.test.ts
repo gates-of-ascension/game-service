@@ -7,17 +7,23 @@ import Card from "../../src/models/postgres/Card";
 import UserDeckCard from "../../src/models/postgres/UserDeckCard";
 import { v4 as uuidv4 } from "uuid";
 import User from "../../src/models/postgres/User";
+import { createUserAndLogin } from "../util/authHelper";
+import { RedisClient } from "../../src/initDatastores";
 
 describe("User Deck Cards", () => {
   let app: Express;
+  let redisClient: RedisClient;
 
   beforeAll(async () => {
-    const { app: testApp } = await setupTestEnvironment();
+    const { app: testApp, redisClient: testRedisClient } =
+      await setupTestEnvironment();
     app = testApp;
+    redisClient = testRedisClient;
     await UserDeckCard.destroy({ where: {} });
     await UserDeck.destroy({ where: {} });
     await Card.destroy({ where: {} });
     await User.destroy({ where: {} });
+    await redisClient.flushAll();
   });
 
   beforeEach(async () => {
@@ -25,33 +31,30 @@ describe("User Deck Cards", () => {
     await UserDeck.destroy({ where: {} });
     await Card.destroy({ where: {} });
     await User.destroy({ where: {} });
+    await redisClient.flushAll();
   });
 
-  describe("GET /v1/user_decks/:id/cards", () => {
-    it("should return 404 if the user deck id is not found", async () => {
+  describe("GET /v1/users/:userId/decks/:deckId/cards", () => {
+    it("should return 401 if the user is not authenticated", async () => {
       const response = await request(app).get(
-        `/v1/user_decks/${uuidv4()}/cards`,
+        `/v1/users/1/decks/${uuidv4()}/cards`,
       );
-      expect(response.status).toBe(404);
+      expect(response.status).toBe(401);
     });
 
-    it("should return 400 if the user deck id is not a valid uuid", async () => {
-      const response = await request(app).get(
-        `/v1/user_decks/invalid-uuid/cards`,
-      );
-      expect(response.status).toBe(400);
+    it("should return 403 if the user is not the same as the authenticated user", async () => {
+      const { agent } = await createUserAndLogin(app);
+      const response = await agent.get(`/v1/users/1/decks/${uuidv4()}/cards`);
+      expect(response.status).toBe(403);
     });
 
     it("should return 200 if the user deck cards are returned", async () => {
-      const user = await User.create({
-        displayName: "John Doe",
-        username: "john.doe",
-        password: "password",
-      });
-      const userDeck = await UserDeck.create({
-        name: "My Deck",
-        userId: user.id,
-      });
+      const { agent, user } = await createUserAndLogin(app);
+      const userDeckResponse = await agent
+        .post(`/v1/users/${user.id}/decks`)
+        .send({
+          name: "My Deck",
+        });
       const card1 = await Card.create({
         name: "My Card",
         type: "My Type",
@@ -61,17 +64,17 @@ describe("User Deck Cards", () => {
         type: "My Type 2",
       });
       await UserDeckCard.create({
-        userDeckId: userDeck.id,
+        userDeckId: userDeckResponse.body.id,
         cardId: card1.id,
         quantity: 1,
       });
       await UserDeckCard.create({
-        userDeckId: userDeck.id,
+        userDeckId: userDeckResponse.body.id,
         cardId: card2.id,
         quantity: 1,
       });
-      const response = await request(app).get(
-        `/v1/user_decks/${userDeck.id}/cards`,
+      const response = await agent.get(
+        `/v1/users/${user.id}/decks/${userDeckResponse.body.id}/cards`,
       );
       expect(response.status).toBe(200);
       expect(response.body).toEqual([
@@ -87,38 +90,31 @@ describe("User Deck Cards", () => {
     });
   });
 
-  describe("PUT /v1/user_decks/:id/cards", () => {
-    it("should return 404 if the user deck id is not found", async () => {
+  describe("PUT /v1/users/:userId/decks/:deckId/cards", () => {
+    it("should return 401 if the user is not authenticated", async () => {
       const response = await request(app)
-        .put(`/v1/user_decks/${uuidv4()}/cards`)
+        .put(`/v1/users/1/decks/${uuidv4()}/cards`)
         .send({
-          cards: [
-            {
-              cardId: 1,
-              quantity: 1,
-            },
-          ],
+          cards: [],
         });
-      expect(response.status).toBe(404);
+      expect(response.status).toBe(401);
     });
 
-    it("should return 400 if the user deck id is not a valid uuid", async () => {
-      const response = await request(app)
-        .put(`/v1/user_decks/invalid-uuid/cards`)
-        .send({
-          cards: [
-            {
-              cardId: 1,
-              quantity: 1,
-            },
-          ],
-        });
-      expect(response.status).toBe(400);
+    it("should return 403 if the user is not the same as the authenticated user", async () => {
+      const { agent } = await createUserAndLogin(app);
+      const response = await agent.put(`/v1/users/1/decks/${uuidv4()}/cards`);
+      expect(response.status).toBe(403);
     });
 
     it("should return 400 if the card id is not a valid number", async () => {
-      const response = await request(app)
-        .put(`/v1/user_decks/${uuidv4()}/cards`)
+      const { agent, user } = await createUserAndLogin(app);
+      const userDeckResponse = await agent
+        .post(`/v1/users/${user.id}/decks`)
+        .send({
+          name: "My Deck",
+        });
+      const response = await agent
+        .put(`/v1/users/${user.id}/decks/${userDeckResponse.body.id}/cards`)
         .send({
           cards: [
             {
@@ -131,8 +127,14 @@ describe("User Deck Cards", () => {
     });
 
     it("should return 400 if the cards array is empty", async () => {
-      const response = await request(app)
-        .put(`/v1/user_decks/${uuidv4()}/cards`)
+      const { agent, user } = await createUserAndLogin(app);
+      const userDeckResponse = await agent
+        .post(`/v1/users/${user.id}/decks`)
+        .send({
+          name: "My Deck",
+        });
+      const response = await agent
+        .put(`/v1/users/${user.id}/decks/${userDeckResponse.body.id}/cards`)
         .send({ cards: [] });
       expect(response.status).toBe(400);
     });
@@ -145,15 +147,12 @@ describe("User Deck Cards", () => {
       - card2 should be updated with a quantity of 2
       - card3 should be created with a quantity of 3
       */
-      const user = await User.create({
-        displayName: "John Doe",
-        username: "john.doe",
-        password: "password",
-      });
-      const userDeck = await UserDeck.create({
-        name: "My Deck",
-        userId: user.id,
-      });
+      const { agent, user } = await createUserAndLogin(app);
+      const userDeckResponse = await agent
+        .post(`/v1/users/${user.id}/decks`)
+        .send({
+          name: "My Deck",
+        });
       const card1 = await Card.create({
         name: "My Card",
         type: "My Type",
@@ -167,17 +166,17 @@ describe("User Deck Cards", () => {
         type: "My Type 3",
       });
       await UserDeckCard.create({
-        userDeckId: userDeck.id,
+        userDeckId: userDeckResponse.body.id,
         cardId: card1.id,
         quantity: 1,
       });
       await UserDeckCard.create({
-        userDeckId: userDeck.id,
+        userDeckId: userDeckResponse.body.id,
         cardId: card2.id,
         quantity: 1,
       });
-      const response = await request(app)
-        .put(`/v1/user_decks/${userDeck.id}/cards`)
+      const response = await agent
+        .put(`/v1/users/${user.id}/decks/${userDeckResponse.body.id}/cards`)
         .send({
           cards: [
             {
