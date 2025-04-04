@@ -115,6 +115,12 @@ describe("User Decks", () => {
       expect(response.status).toBe(403);
     });
 
+    it("should return 404 if no user decks are found", async () => {
+      const { agent, user } = await createUserAndLogin(app);
+      const response = await agent.get(`/v1/users/${user.id}/decks`);
+      expect(response.status).toBe(404);
+    });
+
     it("should return 200 if the user decks are found and the user deck is returned", async () => {
       const { agent, user } = await createUserAndLogin(app);
       const [userDeckResponse, userDeck2Response] = await Promise.all([
