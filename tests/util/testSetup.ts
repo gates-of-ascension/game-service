@@ -39,5 +39,6 @@ export default async function setupTestEnvironment() {
   return {
     logger,
     app,
+    redisClient,
   };
 }

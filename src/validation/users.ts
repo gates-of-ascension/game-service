@@ -17,7 +17,7 @@ export const userLoginSchema = {
 
 export const updateUserSchema = {
   params: Joi.object({
-    id: Joi.string().uuid().required(),
+    userId: Joi.string().uuid().required(),
   }),
   body: Joi.object({
     displayName: Joi.string().optional(),
@@ -28,12 +28,12 @@ export const updateUserSchema = {
 
 export const getUserSchema = {
   params: Joi.object({
-    id: Joi.string().uuid().required(),
+    userId: Joi.string().uuid().required(),
   }),
 };
 
 export const deleteUserSchema = {
   params: Joi.object({
-    id: Joi.string().uuid().required(),
+    userId: Joi.string().uuid().required(),
   }),
 };

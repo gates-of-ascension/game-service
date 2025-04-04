@@ -5,6 +5,7 @@ import { formatSequelizeError } from "../utils/sequelizeErrorHelper";
 import { CreateUserRequestBody, UpdateUserRequestBody } from "../types/user";
 import bcrypt from "bcrypt";
 import { RedisClient } from "../initDatastores";
+import UserDeck from "../models/postgres/UserDeck";
 
 export default class UsersController {
   constructor(
@@ -68,29 +69,56 @@ export default class UsersController {
   }
 
   async login(requestBody: { username: string; password: string }) {
-    const user = await User.findOne({
-      where: { username: requestBody.username },
-    });
+    let user;
+    try {
+      user = await User.findOne({
+        where: { username: requestBody.username },
+      });
+    } catch (error) {
+      const errorResponse = formatSequelizeError(error as Error, this.logger);
+      throw new ApiError(errorResponse.status, errorResponse.message);
+    }
 
     if (!user) {
       throw new ApiError(401, "Invalid username or password");
     }
 
-    const isPasswordValid = await bcrypt.compare(
-      requestBody.password,
-      user.password,
-    );
+    let isPasswordValid;
+    try {
+      isPasswordValid = await bcrypt.compare(
+        requestBody.password,
+        user.password,
+      );
+    } catch (error) {
+      const errorResponse = formatSequelizeError(error as Error, this.logger);
+      throw new ApiError(errorResponse.status, errorResponse.message);
+    }
 
     if (!isPasswordValid) {
       throw new ApiError(401, "Invalid username or password");
     }
 
+    let userDecks;
+    try {
+      userDecks = await UserDeck.findAll({
+        where: { userId: user.id },
+        attributes: ["id"],
+        raw: true,
+      });
+    } catch (error) {
+      const errorResponse = formatSequelizeError(error as Error, this.logger);
+      throw new ApiError(errorResponse.status, errorResponse.message);
+    }
+
     return {
-      id: user.id,
-      displayName: user.displayName,
-      username: user.username,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
+      user: {
+        id: user.id,
+        displayName: user.displayName,
+        username: user.username,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+      userDecksIds: userDecks.map((userDeck) => userDeck.id),
     };
   }
 

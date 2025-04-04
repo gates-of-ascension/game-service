@@ -7,65 +7,54 @@ import UserDeck from "../../src/models/postgres/UserDeck";
 import { v4 as uuidv4 } from "uuid";
 import UserDeckCard from "../../src/models/postgres/UserDeckCard";
 import Card from "../../src/models/postgres/Card";
+import { createUserAndLogin } from "../util/authHelper";
+import { RedisClient } from "../../src/initDatastores";
 
 describe("User Decks", () => {
   let app: Express;
+  let redisClient: RedisClient;
 
   beforeAll(async () => {
-    const { app: testApp } = await setupTestEnvironment();
+    const { app: testApp, redisClient: testRedisClient } =
+      await setupTestEnvironment();
     app = testApp;
+    redisClient = testRedisClient;
     await UserDeckCard.destroy({ where: {} });
     await UserDeck.destroy({ where: {} });
     await Card.destroy({ where: {} });
     await User.destroy({ where: {} });
+    await redisClient.flushAll();
   });
 
   beforeEach(async () => {
     await User.destroy({ where: {} });
     await UserDeck.destroy({ where: {} });
+    await UserDeckCard.destroy({ where: {} });
+    await redisClient.flushAll();
   });
 
-  describe("POST /v1/user-decks", () => {
+  describe("POST /v1/users/:userId/decks", () => {
+    it("should return 401 if the user is not authenticated", async () => {
+      const response = await request(app).post("/v1/users/1/decks").send({});
+      expect(response.status).toBe(401);
+    });
+
+    it("should return 403 if the user is not the same as the authenticated user", async () => {
+      const { agent } = await createUserAndLogin(app);
+      const response = await agent.post(`/v1/users/1/decks`).send({});
+      expect(response.status).toBe(403);
+    });
+
     it("should return 400 if name is not provided", async () => {
-      const response = await request(app).post("/v1/user_decks").send({
-        name: "My Deck",
-      });
+      const { agent, user } = await createUserAndLogin(app);
+      const response = await agent.post(`/v1/users/${user.id}/decks`).send({});
       expect(response.status).toBe(400);
     });
 
-    it("should return 404 if the user id is not found", async () => {
-      const response = await request(app).post("/v1/user_decks").send({
+    it("should create a new user deck and update the session with the new user deck id", async () => {
+      const { agent, user } = await createUserAndLogin(app);
+      const response = await agent.post(`/v1/users/${user.id}/decks`).send({
         name: "My Deck",
-        userId: uuidv4(),
-      });
-      expect(response.status).toBe(404);
-    });
-
-    it("should return 400 if the user id is not provided", async () => {
-      const response = await request(app).post("/v1/user_decks").send({
-        name: "My Deck",
-      });
-      expect(response.status).toBe(400);
-    });
-
-    it("should return 400 if the user id is not a valid uuid", async () => {
-      const response = await request(app).post("/v1/user_decks").send({
-        name: "My Deck",
-        userId: "invalid-uuid",
-      });
-      expect(response.status).toBe(400);
-    });
-
-    it("should create a new user deck", async () => {
-      const user = await User.create({
-        displayName: "John Doe",
-        username: "john.doe",
-        password: "password",
-      });
-
-      const response = await request(app).post("/v1/user_decks").send({
-        name: "My Deck",
-        userId: user.id,
       });
 
       expect(response.status).toBe(201);
@@ -74,36 +63,40 @@ describe("User Decks", () => {
       expect(response.body.userId).toBe(user.id);
       expect(response.body.createdAt).toBeDefined();
       expect(response.body.updatedAt).toBeDefined();
+
+      const userDeckGetResponse = await agent.get(
+        `/v1/users/${user.id}/decks/${response.body.id}`,
+      ); // if this fails due to 403, the session is not updated with the new user deck id
+      expect(userDeckGetResponse.status).not.toBe(403);
+      expect(userDeckGetResponse.status).toBe(200);
     });
   });
 
-  describe("GET /v1/user-decks/:id", () => {
-    it("should return 404 if the user deck id is not found", async () => {
-      const response = await request(app).get(`/v1/user_decks/${uuidv4()}`);
-      expect(response.status).toBe(404);
+  describe("GET /v1/users/:userId/decks/:deckId", () => {
+    it("should return 401 if the user is not authenticated", async () => {
+      const response = await request(app).get(`/v1/users/1/decks/${uuidv4()}`);
+      expect(response.status).toBe(401);
     });
 
-    it("should return 400 if the user deck id is not a valid uuid", async () => {
-      const response = await request(app).get("/v1/user_decks/invalid-uuid");
-      expect(response.status).toBe(400);
+    it("should return 403 if the user is not the same as the authenticated user", async () => {
+      const { agent } = await createUserAndLogin(app);
+      const response = await agent.get(`/v1/users/1/decks/${uuidv4()}`);
+      expect(response.status).toBe(403);
     });
 
     it("should return 200 if the user deck is found", async () => {
-      const user = await User.create({
-        displayName: "John Doe",
-        username: "john.doe",
-        password: "password",
-      });
-
-      const userDeck = await UserDeck.create({
-        name: "My Deck",
-        userId: user.id,
-      });
-
-      const response = await request(app).get(`/v1/user_decks/${userDeck.id}`);
+      const { agent, user } = await createUserAndLogin(app);
+      const userDeckResponse = await agent
+        .post(`/v1/users/${user.id}/decks`)
+        .send({
+          name: "My Deck",
+        }); // this also checks if the session is updated with the new user deck id
+      const response = await agent.get(
+        `/v1/users/${user.id}/decks/${userDeckResponse.body.id}`,
+      );
       expect(response.status).toBe(200);
-      expect(response.body.id).toBe(userDeck.id);
-      expect(response.body.name).toBe(userDeck.name);
+      expect(response.body.id).toBe(userDeckResponse.body.id);
+      expect(response.body.name).toBe(userDeckResponse.body.name);
       expect(response.body.userId).toBe(user.id);
       expect(response.body.createdAt).toBeDefined();
       expect(response.body.updatedAt).toBeDefined();
@@ -111,51 +104,47 @@ describe("User Decks", () => {
   });
 
   describe("PUT /v1/user-decks/:id", () => {
-    it("should return 404 if the user deck id is not found", async () => {
+    it("should return 401 if the user is not authenticated", async () => {
       const response = await request(app)
-        .put(`/v1/user_decks/${uuidv4()}`)
-        .send({
-          name: "My Updated Deck",
-        });
-      expect(response.status).toBe(404);
+        .put(`/v1/users/1/decks/${uuidv4()}`)
+        .send({});
+      expect(response.status).toBe(401);
     });
 
-    it("should return 400 no fields are provided", async () => {
-      const response = await request(app)
-        .put(`/v1/user_decks/${uuidv4()}`)
+    it("should return 403 if the user is not the same as the authenticated user", async () => {
+      const { agent } = await createUserAndLogin(app);
+      const response = await agent.put(`/v1/users/1/decks/${uuidv4()}`);
+      expect(response.status).toBe(403);
+    });
+
+    it("should return 400 if no fields are provided", async () => {
+      const { agent, user } = await createUserAndLogin(app);
+      const userDeckResponse = await agent
+        .post(`/v1/users/${user.id}/decks`)
+        .send({
+          name: "My Deck",
+        });
+      const response = await agent
+        .put(`/v1/users/${user.id}/decks/${userDeckResponse.body.id}`)
         .send({});
       expect(response.status).toBe(400);
     });
 
-    it("should return 400 if the user deck id is not a valid uuid", async () => {
-      const response = await request(app)
-        .put("/v1/user_decks/invalid-uuid")
-        .send({
-          name: "My Updated Deck",
-        });
-      expect(response.status).toBe(400);
-    });
-
     it("should return 200 if the user deck is updated", async () => {
-      const user = await User.create({
-        displayName: "John Doe",
-        username: "john.doe",
-        password: "password",
-      });
-
-      const userDeck = await UserDeck.create({
-        name: "My Deck",
-        userId: user.id,
-      });
-
-      const response = await request(app)
-        .put(`/v1/user_decks/${userDeck.id}`)
+      const { agent, user } = await createUserAndLogin(app);
+      const userDeckResponse = await agent
+        .post(`/v1/users/${user.id}/decks`)
+        .send({
+          name: "My Deck",
+        });
+      const response = await agent
+        .put(`/v1/users/${user.id}/decks/${userDeckResponse.body.id}`)
         .send({
           name: "My Updated Deck",
         });
 
       expect(response.status).toBe(200);
-      expect(response.body.id).toBe(userDeck.id);
+      expect(response.body.id).toBe(userDeckResponse.body.id);
       expect(response.body.name).toBe("My Updated Deck");
       expect(response.body.userId).toBe(user.id);
       expect(response.body.createdAt).toBeDefined();
@@ -163,28 +152,27 @@ describe("User Decks", () => {
     });
   });
 
-  describe("DELETE /v1/user-decks/:id", () => {
-    it("should return 404 if the user deck id is not found", async () => {
-      const response = await request(app).delete(`/v1/user_decks/${uuidv4()}`);
-      expect(response.status).toBe(404);
+  describe("DELETE /v1/users/:userId/decks/:deckId", () => {
+    it("should return 401 if the user is not authenticated", async () => {
+      const response = await request(app).delete(
+        `/v1/users/1/decks/${uuidv4()}`,
+      );
+      expect(response.status).toBe(401);
     });
 
-    it("should return 400 if the user deck id is not a valid uuid", async () => {
-      const response = await request(app).delete("/v1/user_decks/invalid-uuid");
-      expect(response.status).toBe(400);
+    it("should return 403 if the user is not the same as the authenticated user", async () => {
+      const { agent } = await createUserAndLogin(app);
+      const response = await agent.delete(`/v1/users/1/decks/${uuidv4()}`);
+      expect(response.status).toBe(403);
     });
 
     it("should return 200 if the user deck is deleted, and all user deck cards are deleted", async () => {
-      const user = await User.create({
-        displayName: "John Doe",
-        username: "john.doe",
-        password: "password",
-      });
-
-      const userDeck = await UserDeck.create({
-        name: "My Deck",
-        userId: user.id,
-      });
+      const { agent, user } = await createUserAndLogin(app);
+      const userDeckResponse = await agent
+        .post(`/v1/users/${user.id}/decks`)
+        .send({
+          name: "My Deck",
+        });
 
       const card1 = await Card.create({
         name: "My Card 1",
@@ -195,20 +183,22 @@ describe("User Decks", () => {
         type: "My Type 2",
       });
       await UserDeckCard.create({
-        userDeckId: userDeck.id,
+        userDeckId: userDeckResponse.body.id,
         cardId: card1.id,
       });
       await UserDeckCard.create({
-        userDeckId: userDeck.id,
+        userDeckId: userDeckResponse.body.id,
         cardId: card2.id,
       });
 
-      const response = await request(app).delete(
-        `/v1/user_decks/${userDeck.id}`,
+      const response = await agent.delete(
+        `/v1/users/${user.id}/decks/${userDeckResponse.body.id}`,
       );
       expect(response.status).toBe(200);
       expect(
-        await UserDeckCard.findAll({ where: { userDeckId: userDeck.id } }),
+        await UserDeckCard.findAll({
+          where: { userDeckId: userDeckResponse.body.id },
+        }),
       ).toEqual([]);
     });
   });

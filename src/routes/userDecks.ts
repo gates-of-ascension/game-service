@@ -9,25 +9,36 @@ import {
   saveUserDeckCardsSchema,
 } from "../validation/userDecks";
 import validate from "../middleware/validation";
+import { createAuthMiddleware } from "../middleware/authenticate";
 
 export default (userDecksController: UserDecksController) => {
   const router = Router();
 
   router.get(
-    "/v1/user_decks/:id",
+    "/v1/users/:userId/decks/:deckId",
+    createAuthMiddleware({
+      checkAuthentication: true,
+      checkUserId: true,
+      checkUserDeckId: true,
+    }),
     validate(getUserDeckByIdSchema),
     async (req, res) => {
-      const userDeckId = req.params.id;
+      const userDeckId = req.params.deckId;
       const userDeck = await userDecksController.getUserDeckById(userDeckId);
       res.status(200).json(userDeck);
     },
   );
 
   router.get(
-    "/v1/user_decks/:id/cards",
+    "/v1/users/:userId/decks/:deckId/cards",
+    createAuthMiddleware({
+      checkAuthentication: true,
+      checkUserId: true,
+      checkUserDeckId: true,
+    }),
     validate(getUserDeckCardsByUserDeckIdSchema),
     async (req, res) => {
-      const userDeckId = req.params.id;
+      const userDeckId = req.params.deckId;
       const userDeckCards =
         await userDecksController.getUserDeckCards(userDeckId);
       res.status(200).json(userDeckCards);
@@ -35,25 +46,32 @@ export default (userDecksController: UserDecksController) => {
   );
 
   router.post(
-    "/v1/user_decks",
+    "/v1/users/:userId/decks",
+    createAuthMiddleware({ checkAuthentication: true, checkUserId: true }),
     validate(createUserDeckSchema),
     async (req, res) => {
-      const { name, description, userId } = req.body;
+      const { name, description } = req.body;
       const userDeck = await userDecksController.createUserDeck({
         name,
         description,
-        userId,
+        userId: req.params.userId,
       });
+      req.session.userDeckIds.push(userDeck.id);
       res.status(201).json(userDeck);
     },
   );
 
   router.put(
-    "/v1/user_decks/:id",
+    "/v1/users/:userId/decks/:deckId",
+    createAuthMiddleware({
+      checkAuthentication: true,
+      checkUserId: true,
+      checkUserDeckId: true,
+    }),
     validate(updateUserDeckSchema),
     async (req, res) => {
       const { name, description } = req.body;
-      const userDeckId = req.params.id;
+      const userDeckId = req.params.deckId;
       const userDeck = await userDecksController.updateUserDeck(userDeckId, {
         name,
         description,
@@ -63,11 +81,16 @@ export default (userDecksController: UserDecksController) => {
   );
 
   router.put(
-    "/v1/user_decks/:id/cards",
+    "/v1/users/:userId/decks/:deckId/cards",
+    createAuthMiddleware({
+      checkAuthentication: true,
+      checkUserId: true,
+      checkUserDeckId: true,
+    }),
     validate(saveUserDeckCardsSchema),
     async (req, res) => {
       const { cards } = req.body;
-      const userDeckId = req.params.id;
+      const userDeckId = req.params.deckId;
       const userDeckCards = await userDecksController.saveUserDeckCards(
         userDeckId,
         cards,
@@ -77,11 +100,19 @@ export default (userDecksController: UserDecksController) => {
   );
 
   router.delete(
-    "/v1/user_decks/:id",
+    "/v1/users/:userId/decks/:deckId",
+    createAuthMiddleware({
+      checkAuthentication: true,
+      checkUserId: true,
+      checkUserDeckId: true,
+    }),
     validate(deleteUserDeckSchema),
     async (req, res) => {
-      const userDeckId = req.params.id;
+      const userDeckId = req.params.deckId;
       await userDecksController.deleteUserDeck(userDeckId);
+      req.session.userDeckIds = req.session.userDeckIds.filter(
+        (id) => id !== userDeckId,
+      );
       res.status(200).send();
     },
   );

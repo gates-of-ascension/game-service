@@ -4,6 +4,8 @@ export const createUserDeckSchema = {
   body: Joi.object({
     name: Joi.string().required(),
     description: Joi.string().optional(),
+  }),
+  params: Joi.object({
     userId: Joi.string().uuid().required(),
   }),
 };
@@ -14,31 +16,36 @@ export const updateUserDeckSchema = {
     description: Joi.string().optional(),
   }).min(1),
   params: Joi.object({
-    id: Joi.string().uuid().required(),
+    userId: Joi.string().uuid().required(),
+    deckId: Joi.string().uuid().required(),
   }),
 };
 
 export const deleteUserDeckSchema = {
   params: Joi.object({
-    id: Joi.string().uuid().required(),
+    userId: Joi.string().uuid().required(),
+    deckId: Joi.string().uuid().required(),
   }),
 };
 
 export const getUserDeckByIdSchema = {
   params: Joi.object({
-    id: Joi.string().uuid().required(),
+    userId: Joi.string().uuid().required(),
+    deckId: Joi.string().uuid().required(),
   }),
 };
 
 export const getUserDeckCardsByUserDeckIdSchema = {
   params: Joi.object({
-    id: Joi.string().uuid().required(),
+    userId: Joi.string().uuid().required(),
+    deckId: Joi.string().uuid().required(),
   }),
 };
 
 export const createUserDeckCardSchema = {
   params: Joi.object({
-    id: Joi.string().uuid().required(),
+    userId: Joi.string().uuid().required(),
+    deckId: Joi.string().uuid().required(),
   }),
   body: Joi.object({
     cardId: Joi.number().required(),
@@ -48,7 +55,8 @@ export const createUserDeckCardSchema = {
 
 export const updateUserDeckCardSchema = {
   params: Joi.object({
-    id: Joi.string().uuid().required(),
+    userId: Joi.string().uuid().required(),
+    deckId: Joi.string().uuid().required(),
     cardId: Joi.number().required(),
   }),
   body: Joi.object({
@@ -58,14 +66,16 @@ export const updateUserDeckCardSchema = {
 
 export const deleteUserDeckCardSchema = {
   params: Joi.object({
-    id: Joi.string().uuid().required(),
+    userId: Joi.string().uuid().required(),
+    deckId: Joi.string().uuid().required(),
     cardId: Joi.number().required(),
   }),
 };
 
 export const saveUserDeckCardsSchema = {
   params: Joi.object({
-    id: Joi.string().uuid().required(),
+    userId: Joi.string().uuid().required(),
+    deckId: Joi.string().uuid().required(),
   }),
   body: Joi.object({
     cards: Joi.array()
