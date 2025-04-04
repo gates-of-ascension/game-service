@@ -8,7 +8,7 @@ import {
   getUserDeckCardsByUserDeckIdSchema,
   saveUserDeckCardsSchema,
   getUserDecksSchema,
-} from "../validation/userDecks";
+} from "../validation/REST/userDecks";
 import validate from "../middleware/validation";
 import { createAuthMiddleware } from "../middleware/authenticate";
 

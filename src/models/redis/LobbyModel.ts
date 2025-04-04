@@ -32,16 +32,19 @@ export class LobbyModel extends BaseRedisModel<Lobby> {
     super(redisClient, "lobby", logger);
   }
 
-  async create(data: CreateLobbyOptions, userId: string): Promise<void> {
-    const lobby = {
+  async create(data: CreateLobbyOptions, userId: string): Promise<Lobby> {
+    const lobby: Lobby = {
       ...data,
       id: uuidv4(),
-      users: [userId],
+      users: [
+        { id: userId, username: userId, ready: false, joinedAt: Date.now() },
+      ],
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
     await this.redisClient.set(this.getKey(lobby.id), JSON.stringify(lobby));
     await this.redisClient.sAdd("active_lobbies", lobby.id);
+    return lobby;
   }
 
   async get(id: string): Promise<Lobby | null> {

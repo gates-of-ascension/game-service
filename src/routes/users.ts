@@ -6,7 +6,7 @@ import {
   updateUserSchema,
   deleteUserSchema,
   userLoginSchema,
-} from "../validation/users";
+} from "../validation/REST/users";
 import validate from "../middleware/validation";
 import { createAuthMiddleware } from "../middleware/authenticate";
 import { ApiError } from "../middleware/apiError";

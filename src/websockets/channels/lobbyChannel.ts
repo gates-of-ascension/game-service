@@ -3,46 +3,57 @@ import BaseLogger from "../../utils/logger";
 import BaseChannel from "./baseChannel";
 import { LobbyModel, Lobby } from "../../models/redis/LobbyModel";
 import { GameModel } from "../../models/redis/GameModel";
+import { RedisStore } from "connect-redis";
+import { createLobbySchema } from "../../validation/websockets/lobbies";
 
 class LobbyChannel extends BaseChannel {
   private lobbyModel: LobbyModel;
   private gameModel: GameModel;
+  private redisStore: RedisStore;
   constructor(
     logger: BaseLogger,
     io: Server,
+    redisStore: RedisStore,
     lobbyModel: LobbyModel,
     gameModel: GameModel,
   ) {
     super(logger, io);
     this.lobbyModel = lobbyModel;
     this.gameModel = gameModel;
+    this.redisStore = redisStore;
   }
 
   async registerEvents(socket: Socket) {
-    socket.on("create-lobby", (lobby: Lobby, userId: string) => {
+    socket.on("create_lobby", async (lobby: Lobby, userId: string) => {
+      const { error } = createLobbySchema.validate({ lobby, userId });
+      if (error) {
+        this.logSocketError(socket, "validation_error", error.message);
+        return;
+      }
+
       this.handleCreateLobby(socket, lobby, userId);
     });
 
-    socket.on("join-lobby", (lobbyId: string, userId: string) => {
+    socket.on("join_lobby", (lobbyId: string, userId: string) => {
       this.handleJoinLobby(socket, lobbyId, userId);
     });
 
-    socket.on("leave-lobby", (lobbyId: string, userId: string) => {
+    socket.on("leave_lobby", (lobbyId: string, userId: string) => {
       this.handleLeaveLobby(socket, lobbyId, userId);
     });
 
     socket.on(
-      "update-lobby",
+      "update_lobby",
       (lobbyId: string, lobby: Lobby, userId: string) => {
         this.handleUpdateLobby(socket, lobbyId, lobby, userId);
       },
     );
 
-    socket.on("delete-lobby", (lobbyId: string, userId: string) => {
+    socket.on("delete_lobby", (lobbyId: string, userId: string) => {
       this.handleDeleteLobby(socket, lobbyId, userId);
     });
 
-    socket.on("start-game", (lobbyId: string, userId: string) => {
+    socket.on("start_game", (lobbyId: string, userId: string) => {
       this.handleStartGame(socket, lobbyId, userId);
     });
   }
@@ -53,9 +64,25 @@ class LobbyChannel extends BaseChannel {
     userId: string,
   ) {
     try {
-      await this.lobbyModel.create(lobby, userId);
-      this.joinRoom(socket, lobby.id);
-      this.logger.debug(`User (${socket.id}) created lobby (${lobby.id})`);
+      const createdLobby = await this.lobbyModel.create(lobby, userId);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const session = (socket.request as any).session;
+
+      if (session.lobbyId) {
+        this.logSocketError(
+          socket,
+          "validation_error",
+          "Cannot create lobby while in another lobby",
+        );
+        return;
+      }
+
+      session.lobbyId = createdLobby.id;
+      this.joinRoom(socket, createdLobby.id);
+      this.logger.debug(
+        `User (${socket.id}) created lobby (${createdLobby.id})`,
+      );
+      socket.emit("lobby-created", createdLobby);
     } catch (error) {
       socket.emit("error", `Error creating lobby: (${error})`);
     }

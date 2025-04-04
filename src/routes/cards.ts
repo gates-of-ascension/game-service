@@ -6,7 +6,7 @@ import {
   updateCardSchema,
   deleteCardSchema,
   bulkUpsertCardsSchema,
-} from "../validation/cards";
+} from "../validation/REST/cards";
 import validate from "../middleware/validation";
 
 export default (cardsController: CardsController) => {

@@ -7,8 +7,11 @@ import { GameModel } from "../models/redis/GameModel";
 import BaseLogger from "../utils/logger";
 import { RedisClient } from "../initDatastores";
 import { RedisStore } from "connect-redis";
-import { parse } from "cookie";
+import session, { SessionOptions } from "express-session";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const wrap = (middleware: any) => (socket: any, next: any) =>
+  middleware(socket.request, {}, next);
 export const userSocketMap = new Map<string, string[]>();
 
 export function setupSocketIO(params: {
@@ -17,6 +20,7 @@ export function setupSocketIO(params: {
   lobbiesModel: LobbyModel;
   gamesModel: GameModel;
   redisClient: RedisClient;
+  sessionOptions: SessionOptions;
 }) {
   const { httpServer, logger, lobbiesModel, gamesModel, redisClient } = params;
 
@@ -38,63 +42,46 @@ export function setupSocketIO(params: {
     };
   }
   const io = new Server(httpServer, ioOptions);
-
-  io.use(async (socket, next) => {
-    try {
-      const cookieHeader = socket.handshake.headers.cookie;
-      if (!cookieHeader) {
-        return next(new Error("No session cookie"));
-      }
-
-      const cookies = parse(cookieHeader);
-      const sessionId = cookies["connect.sid"]?.split(".")[0].substring(2);
-
-      logger.info(`Session ID: ${sessionId}`);
-
-      if (!sessionId) {
-        return next(new Error("Session ID not found"));
-      }
-
-      redisStore.get(sessionId, (err, sessionData) => {
-        if (err || !sessionData) {
-          return next(new Error("Invalid session"));
-        }
-
-        const userId = sessionData.userId;
-
-        if (!userId) {
-          return next(new Error("Not authenticated"));
-        }
-
-        socket.data.userId = userId;
-
-        if (!userSocketMap.has(userId)) {
-          userSocketMap.set(userId, []);
-        }
-        userSocketMap.get(userId)?.push(socket.id);
-
-        next();
-      });
-    } catch (error) {
-      logger.error(`Socket authentication error: (${error})`);
-      next(new Error("Authentication error"));
+  io.use(wrap(session(params.sessionOptions)));
+  io.use((socket, next) => {
+    // TODO: fix this typing
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const session = (socket.request as any).session;
+    if (!session.user) {
+      next(new Error("User not authenticated"));
+    } else {
+      next();
     }
   });
 
-  const lobbyChannel = new LobbyChannel(logger, io, lobbiesModel, gamesModel);
+  const lobbyChannel = new LobbyChannel(
+    logger,
+    io,
+    redisStore,
+    lobbiesModel,
+    gamesModel,
+  );
   const gameChannel = new GameChannel(logger, io, gamesModel);
 
   io.on("connection", (socket) => {
     const userId = socket.data.userId;
-    logger.info(`User connected: ${socket.id} (User ID: ${userId})`);
+
+    if (!userSocketMap.has(userId)) {
+      userSocketMap.set(userId, []);
+    }
+    userSocketMap.get(userId)?.push(socket.id);
 
     socket.join(userId);
 
     lobbyChannel.registerEvents(socket);
     gameChannel.registerEvents(socket);
 
+    logger.info(`User socket connected: (${socket.id}) (User ID: ${userId})`);
+
     socket.on("disconnect", () => {
-      logger.info(`User disconnected: ${socket.id} (User ID: ${userId})`);
+      logger.info(
+        `User socket disconnected: (${socket.id}) User ID: (${userId})`,
+      );
 
       const userSockets = userSocketMap.get(userId);
       if (userSockets) {
