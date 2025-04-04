@@ -7,6 +7,7 @@ import {
   getUserDeckByIdSchema,
   getUserDeckCardsByUserDeckIdSchema,
   saveUserDeckCardsSchema,
+  getUserDecksSchema,
 } from "../validation/userDecks";
 import validate from "../middleware/validation";
 import { createAuthMiddleware } from "../middleware/authenticate";
@@ -26,6 +27,20 @@ export default (userDecksController: UserDecksController) => {
       const userDeckId = req.params.deckId;
       const userDeck = await userDecksController.getUserDeckById(userDeckId);
       res.status(200).json(userDeck);
+    },
+  );
+
+  router.get(
+    "/v1/users/:userId/decks",
+    createAuthMiddleware({
+      checkAuthentication: true,
+      checkUserId: true,
+    }),
+    validate(getUserDecksSchema),
+    async (req, res) => {
+      const userId = req.params.userId;
+      const userDecks = await userDecksController.getUserDecks(userId);
+      res.status(200).json(userDecks);
     },
   );
 

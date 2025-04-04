@@ -35,6 +35,27 @@ export default class UserDecksController {
     return userDeck;
   }
 
+  async getUserDecks(userId: string) {
+    let userDecks;
+    try {
+      userDecks = await UserDeck.findAll({
+        where: { userId },
+      });
+    } catch (error) {
+      const errorResponse = formatSequelizeError(error as Error, this.logger);
+      throw new ApiError(errorResponse.status, errorResponse.message);
+    }
+
+    if (userDecks.length === 0) {
+      throw new ApiError(
+        404,
+        `Could not find user decks for user with id (${userId}), user decks not found`,
+      );
+    }
+
+    return userDecks;
+  }
+
   async getUserDeckCards(userDeckId: string) {
     let userDeckCards;
     try {
