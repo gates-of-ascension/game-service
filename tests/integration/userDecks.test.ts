@@ -103,6 +103,44 @@ describe("User Decks", () => {
     });
   });
 
+  describe("GET /v1/users/:userId/decks", () => {
+    it("should return 401 if the user is not authenticated", async () => {
+      const response = await request(app).get(`/v1/users/1/decks`);
+      expect(response.status).toBe(401);
+    });
+
+    it("should return 403 if the user is not the same as the authenticated user", async () => {
+      const { agent } = await createUserAndLogin(app);
+      const response = await agent.get(`/v1/users/1/decks`);
+      expect(response.status).toBe(403);
+    });
+
+    it("should return 200 if the user decks are found and the user deck is returned", async () => {
+      const { agent, user } = await createUserAndLogin(app);
+      const [userDeckResponse, userDeck2Response] = await Promise.all([
+        agent.post(`/v1/users/${user.id}/decks`).send({
+          name: "My Deck",
+        }),
+        agent.post(`/v1/users/${user.id}/decks`).send({
+          name: "My Deck 2",
+        }),
+      ]);
+      const response = await agent.get(`/v1/users/${user.id}/decks`);
+      expect(response.status).toBe(200);
+      expect(response.body.length).toBe(2);
+      expect(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        response.body.some((deck: any) => deck.id === userDeckResponse.body.id),
+      ).toBe(true);
+      expect(
+        response.body.some(
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (deck: any) => deck.id === userDeck2Response.body.id,
+        ),
+      ).toBe(true);
+    });
+  });
+
   describe("PUT /v1/user-decks/:id", () => {
     it("should return 401 if the user is not authenticated", async () => {
       const response = await request(app)

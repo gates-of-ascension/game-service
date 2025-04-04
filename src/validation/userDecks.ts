@@ -35,6 +35,12 @@ export const getUserDeckByIdSchema = {
   }),
 };
 
+export const getUserDecksSchema = {
+  params: Joi.object({
+    userId: Joi.string().uuid().required(),
+  }),
+};
+
 export const getUserDeckCardsByUserDeckIdSchema = {
   params: Joi.object({
     userId: Joi.string().uuid().required(),
