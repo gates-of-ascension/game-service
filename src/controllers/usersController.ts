@@ -124,7 +124,7 @@ export default class UsersController {
           `User (${user.username}) lobby (${requestBody.lobbyId}) found in redis: (${lobby})`,
         );
         if (!lobby) {
-          this.logger.error(
+          this.logger.warn(
             `User (${user.username}) lobby (${requestBody.lobbyId}) not found in redis, returning none`,
           );
           lobbyId = "none";
@@ -132,8 +132,11 @@ export default class UsersController {
           lobbyId = requestBody.lobbyId;
         }
       } catch (error) {
-        const errorResponse = formatSequelizeError(error as Error, this.logger);
-        throw new ApiError(errorResponse.status, errorResponse.message);
+        const err = error as Error;
+        this.logger.error(
+          `User (${user.username}) error getting lobby (${requestBody.lobbyId}) from redis: (${err.message})`,
+        );
+        throw new ApiError(500, `Error getting lobby: (${err.message})`);
       }
     }
 

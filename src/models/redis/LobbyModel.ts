@@ -122,8 +122,9 @@ export class LobbyModel extends BaseRedisModel<Lobby> {
     }
 
     const isUserInLobby = lobby.users.some((user) => user.id === userId);
-    if (!isUserInLobby) {
-      throw new Error(`User with id (${userId}) not found in lobby with id (${lobbyId})`,
+    if (isUserInLobby) {
+      throw new Error(
+        `User with id (${userId}) already in lobby with id (${lobbyId})`,
       );
     }
 
