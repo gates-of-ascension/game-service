@@ -2,6 +2,7 @@ import { RedisClient } from "../../initDatastores";
 import BaseLogger from "../../utils/logger";
 import BaseRedisModel from "./BaseRedisModel";
 import { v4 as uuidv4 } from "uuid";
+
 export type LobbyUser = {
   id: string;
   username: string;

@@ -1,5 +1,4 @@
 import "express-session";
-import { Lobby } from "../models/redis/LobbyModel";
 
 declare module "express-session" {
   interface Session {
@@ -10,7 +9,7 @@ declare module "express-session" {
       createdAt: Date;
       updatedAt: Date;
     };
-    userDeckIds: string[];
-    lobby: Lobby | "none";
+    userDecksIds: string[];
+    lobbyId: string;
   }
 }

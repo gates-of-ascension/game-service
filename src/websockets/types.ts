@@ -5,7 +5,7 @@ import { Socket } from "socket.io";
 export type LobbyChannelServerToClientEvents = {
   lobby_created: (lobby: Lobby) => void;
   game_started: (game: Game) => void;
-  user_session_lobby_removed: () => void;
+  lobby_deleted: (lobbyId: string) => void;
   // Error events
   server_error: (error: string) => void;
   client_error: (error: string) => void;

@@ -62,12 +62,11 @@ export function setupSocketIO(params: {
   const gameChannel = new GameChannel(logger, io, gamesModel);
 
   io.on("connection", (socket) => {
-    const userId = socket.data.userId;
-
     const session = socket.request.session;
+    const userId = session.user.id;
     logger.debug(`Session: (${JSON.stringify(session)})`);
-    if (session.lobby !== "none") {
-      socket.join(session.lobby.id);
+    if (session.lobbyId !== "none") {
+      socket.join(session.lobbyId);
     }
 
     if (!userSocketMap.has(userId)) {

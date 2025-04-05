@@ -59,7 +59,7 @@ class LobbyChannel extends BaseChannel {
   private async handleCreateLobby(socket: Socket, lobby: Lobby) {
     try {
       const session = socket.request.session;
-      if (session.lobby !== "none") {
+      if (session.lobbyId !== "none") {
         this.logSocketError(
           socket,
           "client_error",
@@ -70,7 +70,7 @@ class LobbyChannel extends BaseChannel {
 
       const createdLobby = await this.lobbyModel.create(lobby, session.user.id);
 
-      session.lobby = createdLobby;
+      session.lobbyId = createdLobby.id;
       this.joinRoom(socket, createdLobby.id);
       this.logger.debug(
         `User (${socket.id}) created lobby (${createdLobby.id})`,
@@ -84,9 +84,9 @@ class LobbyChannel extends BaseChannel {
 
   private async removeUserSessionLobby(socket: Socket) {
     const session = socket.request.session;
-    if (session.lobby !== "none") {
+    if (session.lobbyId !== "none") {
       try {
-        await this.lobbyModel.removeUser(session.lobby.id, session.user.id);
+        await this.lobbyModel.removeUser(session.lobbyId, session.user.id);
       } catch (error) {
         const err = error as Error;
         this.logSocketError(
@@ -95,14 +95,14 @@ class LobbyChannel extends BaseChannel {
           `Cannot remove user from lobby: (${err.message})`,
         );
       }
-      session.lobby = "none";
+      session.lobbyId = "none";
       session.save();
       socket.emit("user_session_lobby_removed");
     } else {
       this.logSocketError(
         socket,
         "client_error",
-        "Cannot remove lobby, user is not in a lobby",
+        "Cannot remove user from lobby, user is not in a lobby",
       );
     }
   }
@@ -117,33 +117,33 @@ class LobbyChannel extends BaseChannel {
     }
   }
 
-  private async handleUpdateLobby(socket: LobbyChannelSocket, lobby: Lobby) {
-    try {
-      await this.lobbyModel.update(lobby.id, lobby, socket.data.userId);
-      this.logger.debug(`User (${socket.id}) updated lobby (${lobby.id})`);
-    } catch (error) {
-      socket.emit("server_error", `Error updating lobby: (${error})`);
-    }
-  }
-
   private async handleDeleteLobby(socket: LobbyChannelSocket) {
     const session = socket.request.session;
-    if (session.lobby === "none") {
+    if (session.lobbyId === "none") {
       socket.emit("client_error", "User is not in a lobby");
       return;
     }
 
-    if (session.lobby.ownerId !== session.user.id) {
+    const lobby = await this.lobbyModel.get(session.lobbyId);
+    if (!lobby) {
+      socket.emit("client_error", "Lobby not found");
+      return;
+    }
+
+    if (lobby.ownerId !== session.user.id) {
       socket.emit("client_error", "User is not the owner of the lobby");
       return;
     }
 
     try {
-      const lobbyId = session.lobby.id;
+      const lobbyId = session.lobbyId;
       await this.lobbyModel.userDelete(lobbyId, socket.data.userId);
-      session.lobby = "none";
-      socket.emit("user_session_lobby_removed");
-      this.logger.debug(`User (${socket.id}) deleted lobby (${lobbyId})`);
+      session.lobbyId = "none";
+      socket.emit("lobby_deleted", lobbyId);
+      this.logger.debug(
+        `User (${session.user.username}) deleted lobby (${lobbyId})`,
+      );
+      session.save();
     } catch (error) {
       socket.emit("server_error", `Error deleting lobby: (${error})`);
     }
@@ -152,37 +152,58 @@ class LobbyChannel extends BaseChannel {
   private async handleStartGame(socket: LobbyChannelSocket) {
     // TODO: transaction
     const session = socket.request.session;
-    if (session.lobby === "none") {
+    if (session.lobbyId === "none") {
       socket.emit("client_error", "User is not in a lobby");
       return;
     }
-    if (session.lobby.users.length < 2) {
+    const lobby = await this.lobbyModel.get(session.lobbyId);
+    if (!lobby) {
+      socket.emit("client_error", "Lobby not found");
+      return;
+    }
+    if (lobby.users.length < 2) {
       socket.emit("client_error", "Lobby has less than 2 users");
       return;
     }
-    if (session.lobby.ownerId !== session.user.id) {
+    lobby.users.forEach((user) => {
+      if (!user.ready) {
+        socket.emit("client_error", `User (${user.username}) is not ready`);
+        return;
+      }
+    });
+    if (lobby.ownerId !== session.user.id) {
       socket.emit("client_error", "User is not the owner of the lobby");
       return;
     }
     try {
       this.logger.debug(
-        `User (${session.user.id}) started game (${session.lobby.id})`,
+        `User (${session.user.id}) started game (${session.lobbyId})`,
       );
       const game = await this.gameModel.create(
         {
-          lobbyId: session.lobby.id,
-          players: session.lobby.users.map((user) => ({
+          lobbyId: session.lobbyId,
+          players: lobby.users.map((user) => ({
             id: user.id,
+            username: user.username,
           })),
           gameData: {},
         },
         session.user.id,
       );
-      await this.lobbyModel.setLobbyActive(session.lobby.id, false);
-      this.emitToRoom(session.lobby.id, "game-started", game);
+      await this.lobbyModel.setLobbyActive(session.lobbyId, false);
+      this.emitToRoom(session.lobbyId, "game-started", game);
     } catch (error) {
       socket.emit("server_error", `Error starting game: (${error})`);
-      await this.lobbyModel.setLobbyActive(session.lobby.id, true);
+      await this.lobbyModel.setLobbyActive(session.lobbyId, true);
+    }
+  }
+
+  private async handleUpdateLobby(socket: LobbyChannelSocket, lobby: Lobby) {
+    try {
+      await this.lobbyModel.update(lobby.id, lobby, socket.data.userId);
+      this.logger.debug(`User (${socket.id}) updated lobby (${lobby.id})`);
+    } catch (error) {
+      socket.emit("server_error", `Error updating lobby: (${error})`);
     }
   }
 }
