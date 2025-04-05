@@ -7,6 +7,7 @@ import "./envVariables";
 import path from "path";
 import createApp from "../../src/app";
 import createControllers from "../../src/createControllers";
+import { getSessionSetupOptions } from "../../src/utils/getSessionSetupOptions";
 
 export default async function setupTestEnvironment() {
   const logger = new BaseLogger(path.join(__dirname, "app.log"));
@@ -34,7 +35,8 @@ export default async function setupTestEnvironment() {
     redisClient,
     lobbyModel,
   });
-  const app = await createApp(logger, controllers, redisClient);
+  const sessionOptions = getSessionSetupOptions(redisClient);
+  const app = await createApp(logger, controllers, sessionOptions);
 
   return {
     logger,

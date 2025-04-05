@@ -8,7 +8,7 @@ import {
   getUserDeckCardsByUserDeckIdSchema,
   saveUserDeckCardsSchema,
   getUserDecksSchema,
-} from "../validation/userDecks";
+} from "../validation/REST/userDecks";
 import validate from "../middleware/validation";
 import { createAuthMiddleware } from "../middleware/authenticate";
 
@@ -71,7 +71,7 @@ export default (userDecksController: UserDecksController) => {
         description,
         userId: req.params.userId,
       });
-      req.session.userDeckIds.push(userDeck.id);
+      req.session.userDecksIds.push(userDeck.id);
       res.status(201).json(userDeck);
     },
   );
@@ -125,8 +125,8 @@ export default (userDecksController: UserDecksController) => {
     async (req, res) => {
       const userDeckId = req.params.deckId;
       await userDecksController.deleteUserDeck(userDeckId);
-      req.session.userDeckIds = req.session.userDeckIds.filter(
-        (id) => id !== userDeckId,
+      req.session.userDecksIds = req.session.userDecksIds.filter(
+        (id: string) => id !== userDeckId,
       );
       res.status(200).send();
     },

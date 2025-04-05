@@ -8,6 +8,13 @@ enum LogLevel {
   ERROR = 3,
 }
 
+const envToLogLevel = {
+  local: LogLevel.DEBUG,
+  test: LogLevel.DEBUG,
+  development: LogLevel.DEBUG,
+  production: LogLevel.INFO,
+};
+
 class BaseLogger {
   private logStream: fs.WriteStream;
   private consoleLogLevel: LogLevel;
@@ -18,18 +25,9 @@ class BaseLogger {
       flags: "a",
     });
     this.consoleLogLevel =
-      (process.env.CONSOLE_LOG_LEVEL as unknown as LogLevel) || LogLevel.INFO;
+      envToLogLevel[process.env.ENVIRONMENT as keyof typeof envToLogLevel];
     this.writeLogLevel =
-      (process.env.WRITE_LOG_LEVEL as unknown as LogLevel) || LogLevel.INFO;
-  }
-
-  setLogLevel(level: keyof typeof LogLevel): void {
-    // eslint-disable-next-line no-prototype-builtins
-    if (LogLevel.hasOwnProperty(level)) {
-      this.consoleLogLevel = LogLevel[level];
-    } else {
-      throw new Error(`Invalid log level: ${level}`);
-    }
+      envToLogLevel[process.env.ENVIRONMENT as keyof typeof envToLogLevel];
   }
 
   private log(level: keyof typeof LogLevel, message: string): void {

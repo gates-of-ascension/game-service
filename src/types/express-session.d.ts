@@ -9,6 +9,7 @@ declare module "express-session" {
       createdAt: Date;
       updatedAt: Date;
     };
-    userDeckIds: string[];
+    userDecksIds: string[];
+    lobbyId: string;
   }
 }

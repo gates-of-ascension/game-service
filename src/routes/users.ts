@@ -6,7 +6,7 @@ import {
   updateUserSchema,
   deleteUserSchema,
   userLoginSchema,
-} from "../validation/users";
+} from "../validation/REST/users";
 import validate from "../middleware/validation";
 import { createAuthMiddleware } from "../middleware/authenticate";
 import { ApiError } from "../middleware/apiError";
@@ -45,13 +45,16 @@ export default (usersController: UsersController) => {
     validate(userLoginSchema),
     async (req, res) => {
       const { username, password } = req.body;
+      const session = req.session;
       const response = await usersController.login({
         username,
         password,
+        lobbyId: session.lobbyId,
       });
 
-      req.session.user = response.user;
-      req.session.userDeckIds = response.userDecksIds;
+      session.user = response.user;
+      session.userDecksIds = response.userDecksIds;
+      session.lobbyId = response.lobbyId;
 
       req.session.save((err) => {
         if (err) {

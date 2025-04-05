@@ -68,7 +68,11 @@ export default class UsersController {
     };
   }
 
-  async login(requestBody: { username: string; password: string }) {
+  async login(requestBody: {
+    username: string;
+    password: string;
+    lobbyId?: string;
+  }) {
     let user;
     try {
       user = await User.findOne({
@@ -110,6 +114,33 @@ export default class UsersController {
       throw new ApiError(errorResponse.status, errorResponse.message);
     }
 
+    let lobbyId = "none";
+    if (requestBody.lobbyId) {
+      try {
+        const lobby = await this.redisClient.get(
+          `lobby:${requestBody.lobbyId}`,
+        );
+        this.logger.debug(
+          `User (${user.username}) lobby (${requestBody.lobbyId}) found in redis: (${lobby})`,
+        );
+        if (!lobby) {
+          this.logger.error(
+            `User (${user.username}) lobby (${requestBody.lobbyId}) not found in redis, returning none`,
+          );
+          lobbyId = "none";
+        } else {
+          lobbyId = requestBody.lobbyId;
+        }
+      } catch (error) {
+        const errorResponse = formatSequelizeError(error as Error, this.logger);
+        throw new ApiError(errorResponse.status, errorResponse.message);
+      }
+    }
+
+    this.logger.debug(
+      `User (${user.username}) logged in, returning lobby (${lobbyId})`,
+    );
+
     return {
       user: {
         id: user.id,
@@ -119,6 +150,7 @@ export default class UsersController {
         updatedAt: user.updatedAt,
       },
       userDecksIds: userDecks.map((userDeck) => userDeck.id),
+      lobbyId,
     };
   }
 

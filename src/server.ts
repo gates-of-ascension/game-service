@@ -5,8 +5,11 @@ import createApp from "./app";
 import createControllers from "./createControllers";
 import { initPostgresDatabase, initRedisDatabase } from "./initDatastores";
 import { setupSocketIO } from "./websockets/initSocket";
+import { verifyEnvVars } from "./utils/verifyEnvVars";
+import { getSessionSetupOptions } from "./utils/getSessionSetupOptions";
 
 export default async function createServer() {
+  verifyEnvVars();
   const logger = new BaseLogger(path.join(__dirname, "app.log"));
   const sequelize = await initPostgresDatabase({
     logger,
@@ -25,13 +28,17 @@ export default async function createServer() {
       port: parseInt(process.env.REDIS_PORT!),
     },
   });
+  // if (process.env.ENVIRONMENT === "local") {
+  //   await redisClient.flushAll();
+  // }
   const controllers = await createControllers({
     logger,
     sequelize,
     redisClient,
     lobbyModel,
   });
-  const app = await createApp(logger, controllers, redisClient);
+  const sessionOptions = getSessionSetupOptions(redisClient);
+  const app = await createApp(logger, controllers, sessionOptions);
   const server = http.createServer(app);
 
   setupSocketIO({
@@ -40,6 +47,7 @@ export default async function createServer() {
     lobbiesModel: lobbyModel,
     gamesModel: gameModel,
     redisClient,
+    sessionOptions,
   });
 
   return server;

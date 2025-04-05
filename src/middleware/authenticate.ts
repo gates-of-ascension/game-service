@@ -22,7 +22,7 @@ export function createAuthMiddleware(options: {
 
     if (options.checkUserDeckId) {
       const userDeckId = req.params.deckId;
-      const isUserDeckIdValid = session.userDeckIds.includes(userDeckId);
+      const isUserDeckIdValid = session.userDecksIds.includes(userDeckId);
       if (!isUserDeckIdValid) {
         throw new ApiError(
           403,

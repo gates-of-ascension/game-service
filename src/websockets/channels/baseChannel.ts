@@ -25,4 +25,13 @@ export default abstract class BaseChannel {
   protected leaveRoom(socket: Socket, roomId: string) {
     socket.leave(roomId);
   }
+
+  protected logSocketError(
+    socket: Socket,
+    errorName: string,
+    errorMessage: string,
+  ) {
+    this.logger.error(`Socket Error: (${errorName}) - (${errorMessage})`);
+    socket.emit(errorName, errorMessage);
+  }
 }
