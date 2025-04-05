@@ -108,6 +108,16 @@ class LobbyChannel extends BaseChannel {
   }
 
   private async handleJoinLobby(socket: LobbyChannelSocket, lobbyId: string) {
+    const session = socket.request.session;
+    if (session.lobbyId !== "none") {
+      this.logSocketError(
+        socket,
+        "client_error",
+        "Cannot join lobby while in another lobby",
+      );
+      return;
+    }
+
     try {
       this.logger.debug(`User (${socket.id}) joined lobby (${lobbyId})`);
       await this.lobbyModel.addUser(lobbyId, socket.data.userId);

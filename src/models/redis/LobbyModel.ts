@@ -121,23 +121,18 @@ export class LobbyModel extends BaseRedisModel<Lobby> {
       throw new Error(`Lobby with id (${lobbyId}) is already full!`);
     }
 
-    const existingUserIndex = lobby.users.findIndex(
-      (user) => user.id === userId,
-    );
-    if (existingUserIndex !== -1) {
-      lobby.users[existingUserIndex] = {
-        ...lobby.users[existingUserIndex],
-        ready: false,
-        joinedAt: Date.now(),
-      };
-    } else {
-      lobby.users.push({
-        id: userId,
-        username: userId,
-        ready: false,
-        joinedAt: Date.now(),
-      });
+    const isUserInLobby = lobby.users.some((user) => user.id === userId);
+    if (!isUserInLobby) {
+      throw new Error(`User with id (${userId}) not found in lobby with id (${lobbyId})`,
+      );
     }
+
+    lobby.users.push({
+      id: userId,
+      username: userId,
+      ready: false,
+      joinedAt: Date.now(),
+    });
 
     await this.update(lobbyId, lobby, userId);
   }
