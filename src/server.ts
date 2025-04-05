@@ -28,6 +28,9 @@ export default async function createServer() {
       port: parseInt(process.env.REDIS_PORT!),
     },
   });
+  if (process.env.NODE_ENV === "local") {
+    await redisClient.flushAll();
+  }
   const controllers = await createControllers({
     logger,
     sequelize,

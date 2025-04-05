@@ -44,9 +44,7 @@ export function setupSocketIO(params: {
   const io = new Server(httpServer, ioOptions);
   io.use(wrap(session(params.sessionOptions)));
   io.use((socket, next) => {
-    // TODO: fix this typing
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const session = (socket.request as any).session;
+    const session = socket.request.session;
     if (!session.user) {
       next(new Error("User not authenticated"));
     } else {
@@ -66,8 +64,9 @@ export function setupSocketIO(params: {
   io.on("connection", (socket) => {
     const userId = socket.data.userId;
 
-    const session = (socket.request as any).session;
-    if (session.lobby) {
+    const session = socket.request.session;
+    logger.debug(`Session: (${JSON.stringify(session)})`);
+    if (session.lobby !== "none") {
       socket.join(session.lobby.id);
     }
 

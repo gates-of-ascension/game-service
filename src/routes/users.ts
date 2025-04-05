@@ -52,6 +52,7 @@ export default (usersController: UsersController) => {
 
       req.session.user = response.user;
       req.session.userDeckIds = response.userDecksIds;
+      req.session.lobby = "none";
 
       req.session.save((err) => {
         if (err) {
