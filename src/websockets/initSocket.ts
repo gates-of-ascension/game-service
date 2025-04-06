@@ -2,27 +2,32 @@ import { Server, ServerOptions } from "socket.io";
 import http from "http";
 import GameChannel from "./channels/gameChannel";
 import LobbyChannel from "./channels/lobbyChannel";
-import { LobbyModel } from "../models/redis/LobbyModel";
-import { GameModel } from "../models/redis/GameModel";
 import BaseLogger from "../utils/logger";
 import { RedisClient } from "../initDatastores";
 import { RedisStore } from "connect-redis";
 import session, { SessionOptions } from "express-session";
-
+import LobbyController from "../controllers/lobbyController";
+import GameController from "../controllers/gameController";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const wrap = (middleware: any) => (socket: any, next: any) =>
   middleware(socket.request, {}, next);
-export const userSocketMap = new Map<string, string[]>();
 
 export function setupSocketIO(params: {
   httpServer: http.Server;
   logger: BaseLogger;
-  lobbiesModel: LobbyModel;
-  gamesModel: GameModel;
   redisClient: RedisClient;
   sessionOptions: SessionOptions;
+  lobbyController: LobbyController;
+  gameController: GameController;
 }) {
-  const { httpServer, logger, lobbiesModel, gamesModel, redisClient } = params;
+  const {
+    httpServer,
+    logger,
+    redisClient,
+    sessionOptions,
+    lobbyController,
+    gameController,
+  } = params;
 
   const redisStore = new RedisStore({
     client: redisClient,
@@ -42,7 +47,7 @@ export function setupSocketIO(params: {
     };
   }
   const io = new Server(httpServer, ioOptions);
-  io.use(wrap(session(params.sessionOptions)));
+  io.use(wrap(session(sessionOptions)));
   io.use((socket, next) => {
     const session = socket.request.session;
     if (!session.user) {
@@ -56,12 +61,11 @@ export function setupSocketIO(params: {
     logger,
     io,
     redisStore,
-    lobbiesModel,
-    gamesModel,
+    lobbyController,
   );
-  const gameChannel = new GameChannel(logger, io, gamesModel);
+  const gameChannel = new GameChannel(logger, io, gameController);
 
-  io.on("connection", (socket) => {
+  io.on("connection", async (socket) => {
     const session = socket.request.session;
     const userId = session.user.id;
     logger.debug(`Session: (${JSON.stringify(session)})`);
@@ -69,10 +73,13 @@ export function setupSocketIO(params: {
       socket.join(session.lobbyId);
     }
 
-    if (!userSocketMap.has(userId)) {
-      userSocketMap.set(userId, []);
+    try {
+      await redisClient.set(`user_socket_${userId}`, socket.id);
+    } catch (error) {
+      logger.error(
+        `Error setting user socket (${userId}) in redis: (${error})`,
+      );
     }
-    userSocketMap.get(userId)?.push(socket.id);
 
     socket.join(userId);
 
@@ -81,20 +88,17 @@ export function setupSocketIO(params: {
 
     logger.info(`User socket connected: (${socket.id}) (User ID: ${userId})`);
 
-    socket.on("disconnect", () => {
+    socket.on("disconnect", async () => {
       logger.info(
         `User socket disconnected: (${socket.id}) User ID: (${userId})`,
       );
 
-      const userSockets = userSocketMap.get(userId);
-      if (userSockets) {
-        const index = userSockets.indexOf(socket.id);
-        if (index !== -1) {
-          userSockets.splice(index, 1);
-        }
-        if (userSockets.length === 0) {
-          userSocketMap.delete(userId);
-        }
+      try {
+        await redisClient.del(`user_socket_${userId}`);
+      } catch (error) {
+        logger.error(
+          `Error deleting user socket (${userId}) from redis: (${error})`,
+        );
       }
     });
   });

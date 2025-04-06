@@ -19,7 +19,7 @@ export default async function createApp(
     usersController,
     cardsController,
     userDecksController,
-    lobbiesController,
+    lobbyController,
   } = controllers;
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: false }));
@@ -37,7 +37,7 @@ export default async function createApp(
   app.use("/", usersRouter(usersController));
   app.use("/", cardsRouter(cardsController));
   app.use("/", userDecksRouter(userDecksController));
-  app.use("/", lobbiesRouter(lobbiesController));
+  app.use("/", lobbiesRouter(lobbyController));
   app.use(apiErrorMiddleware(logger));
 
   return app;

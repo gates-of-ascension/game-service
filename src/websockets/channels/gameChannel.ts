@@ -1,14 +1,14 @@
-import { GameModel } from "../../models/redis/GameModel";
 import BaseChannel from "./baseChannel";
 import { Server, Socket } from "socket.io";
 import BaseLogger from "../../utils/logger";
+import GameController from "../../controllers/gameController";
 
 class GameChannel extends BaseChannel {
-  private gameModel: GameModel;
+  private gameController: GameController;
 
-  constructor(logger: BaseLogger, io: Server, gameModel: GameModel) {
+  constructor(logger: BaseLogger, io: Server, gameController: GameController) {
     super(logger, io);
-    this.gameModel = gameModel;
+    this.gameController = gameController;
   }
 
   async registerEvents(socket: Socket) {
@@ -23,7 +23,7 @@ class GameChannel extends BaseChannel {
     playerId: string,
   ) {
     try {
-      await this.gameModel.removePlayer(gameId, playerId);
+      await this.gameController.removePlayer(gameId, playerId);
       this.logger.debug(
         `User (${socket.id}) removed player (${playerId}) from game (${gameId})`,
       );

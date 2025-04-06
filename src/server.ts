@@ -36,6 +36,7 @@ export default async function createServer() {
     sequelize,
     redisClient,
     lobbyModel,
+    gameModel,
   });
   const sessionOptions = getSessionSetupOptions(redisClient);
   const app = await createApp(logger, controllers, sessionOptions);
@@ -44,8 +45,8 @@ export default async function createServer() {
   setupSocketIO({
     httpServer: server,
     logger,
-    lobbiesModel: lobbyModel,
-    gamesModel: gameModel,
+    lobbyController: controllers.lobbyController,
+    gameController: controllers.gameController,
     redisClient,
     sessionOptions,
   });

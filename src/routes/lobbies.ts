@@ -1,5 +1,5 @@
 import { Router } from "express";
-import LobbiesController from "../controllers/lobbiesController";
+import LobbiesController from "../controllers/lobbyController";
 import { createAuthMiddleware } from "../middleware/authenticate";
 
 export default (lobbiesController: LobbiesController) => {
