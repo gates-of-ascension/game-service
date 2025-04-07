@@ -8,6 +8,9 @@ import path from "path";
 import createApp from "../../src/app";
 import createControllers from "../../src/createControllers";
 import { getSessionSetupOptions } from "../../src/utils/getSessionSetupOptions";
+import { UserSessionStore } from "../../src/models/redis/UserSessionStore";
+import { setupSocketIO } from "../../src/websockets/initSocket";
+import http from "http";
 
 export default async function setupTestEnvironment() {
   const logger = new BaseLogger(path.join(__dirname, "app.log"));
@@ -22,25 +25,47 @@ export default async function setupTestEnvironment() {
     },
   });
 
-  const { redisClient, lobbyModel } = await initRedisDatabase({
+  const { redisClient, lobbyModel, gameModel } = await initRedisDatabase({
     logger,
     redisInfo: {
       host: process.env.REDIS_HOST!,
       port: parseInt(process.env.REDIS_PORT!),
     },
   });
+  const userSessionStore = new UserSessionStore({
+    client: redisClient,
+    prefix: "session",
+    logger,
+    lobbyModel,
+  });
   const controllers = await createControllers({
     logger,
     sequelize,
     redisClient,
     lobbyModel,
+    gameModel,
+    userSessionStore,
   });
-  const sessionOptions = getSessionSetupOptions(redisClient);
+  const sessionOptions = getSessionSetupOptions(userSessionStore);
   const app = await createApp(logger, controllers, sessionOptions);
+
+  const server = http.createServer(app);
+
+  setupSocketIO({
+    httpServer: server,
+    logger,
+    redisClient,
+    sessionOptions,
+    lobbyController: controllers.lobbyController,
+    gameController: controllers.gameController,
+    userSessionStore,
+  });
 
   return {
     logger,
     app,
     redisClient,
+    userSessionStore,
+    server,
   };
 }

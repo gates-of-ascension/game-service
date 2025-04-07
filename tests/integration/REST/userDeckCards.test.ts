@@ -1,14 +1,14 @@
 import { expect } from "@jest/globals";
-import setupTestEnvironment from "../util/testSetup";
+import setupTestEnvironment from "../../util/testSetup";
 import { Express } from "express";
 import request from "supertest";
-import UserDeck from "../../src/models/postgres/UserDeck";
-import Card from "../../src/models/postgres/Card";
-import UserDeckCard from "../../src/models/postgres/UserDeckCard";
+import UserDeck from "../../../src/models/postgres/UserDeck";
+import Card from "../../../src/models/postgres/Card";
+import UserDeckCard from "../../../src/models/postgres/UserDeckCard";
 import { v4 as uuidv4 } from "uuid";
-import User from "../../src/models/postgres/User";
-import { createUserAndLogin } from "../util/authHelper";
-import { RedisClient } from "../../src/initDatastores";
+import User from "../../../src/models/postgres/User";
+import { createUserAndLogin } from "../../util/authHelper";
+import { RedisClient } from "../../../src/initDatastores";
 
 describe("User Deck Cards", () => {
   let app: Express;
