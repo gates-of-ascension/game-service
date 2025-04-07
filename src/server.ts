@@ -7,6 +7,7 @@ import { initPostgresDatabase, initRedisDatabase } from "./initDatastores";
 import { setupSocketIO } from "./websockets/initSocket";
 import { verifyEnvVars } from "./utils/verifyEnvVars";
 import { getSessionSetupOptions } from "./utils/getSessionSetupOptions";
+import { UserSessionStore } from "./models/redis/UserSessionStore";
 
 export default async function createServer() {
   verifyEnvVars();
@@ -28,6 +29,12 @@ export default async function createServer() {
       port: parseInt(process.env.REDIS_PORT!),
     },
   });
+  const userSessionStore = new UserSessionStore({
+    client: redisClient,
+    prefix: "session",
+    logger,
+    lobbyModel,
+  });
   // if (process.env.ENVIRONMENT === "local") {
   //   await redisClient.flushAll();
   // }
@@ -37,18 +44,20 @@ export default async function createServer() {
     redisClient,
     lobbyModel,
     gameModel,
+    userSessionStore,
   });
-  const sessionOptions = getSessionSetupOptions(redisClient);
+  const sessionOptions = getSessionSetupOptions(userSessionStore);
   const app = await createApp(logger, controllers, sessionOptions);
   const server = http.createServer(app);
 
   setupSocketIO({
     httpServer: server,
     logger,
-    lobbyController: controllers.lobbyController,
-    gameController: controllers.gameController,
     redisClient,
     sessionOptions,
+    lobbyController: controllers.lobbyController,
+    gameController: controllers.gameController,
+    userSessionStore,
   });
 
   return server;

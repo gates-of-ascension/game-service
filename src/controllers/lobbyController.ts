@@ -32,12 +32,38 @@ export default class LobbyController {
     }
 
     try {
-      const createdLobby = await this.lobbyModel.create(lobby, session.user.id);
+      const createdLobby = await this.lobbyModel.create(
+        lobby,
+        session.user.id,
+        session.user.displayName,
+      );
 
       session.lobbyId = createdLobby.id;
       return { lobby: createdLobby, session };
     } catch (error) {
       throw new SocketError("server_error", `Error creating lobby: (${error})`);
+    }
+  }
+
+  async setUserReady(session: Session, ready: boolean) {
+    if (session.lobbyId === "none") {
+      throw new SocketError(
+        "client_error",
+        "Cannot set user ready while not in a lobby",
+      );
+    }
+
+    try {
+      await this.lobbyModel.setUserReady(
+        session.lobbyId,
+        session.user.id,
+        ready,
+      );
+    } catch (error) {
+      throw new SocketError(
+        "server_error",
+        `Error setting user ready: (${error})`,
+      );
     }
   }
 
@@ -71,7 +97,11 @@ export default class LobbyController {
     }
 
     try {
-      await this.lobbyModel.addUser(lobbyId, session.user.id);
+      await this.lobbyModel.addUser(
+        lobbyId,
+        session.user.id,
+        session.user.displayName,
+      );
     } catch (error) {
       throw new SocketError("server_error", `Error joining lobby: (${error})`);
     }
@@ -93,7 +123,7 @@ export default class LobbyController {
       throw new SocketError("client_error", "Lobby not found");
     }
 
-    if (lobby.ownerId !== session.user.id) {
+    if (lobby.owner.id !== session.user.id) {
       throw new SocketError(
         "client_error",
         "User is not the owner of the lobby",
@@ -127,7 +157,7 @@ export default class LobbyController {
       throw new SocketError("client_error", "Lobby not found");
     }
 
-    if (lobby.ownerId !== session.user.id) {
+    if (lobby.owner.id !== session.user.id) {
       throw new SocketError(
         "client_error",
         "User is not the owner of the lobby",
@@ -139,10 +169,10 @@ export default class LobbyController {
     }
 
     lobby.users.forEach((user) => {
-      if (!user.ready) {
+      if (!user.isReady) {
         throw new SocketError(
           "client_error",
-          `User (${user.username}) is not ready`,
+          `User (${user.displayName}) is not ready`,
         );
       }
     });

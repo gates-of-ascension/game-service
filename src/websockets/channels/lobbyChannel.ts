@@ -2,7 +2,10 @@ import { Server, Socket } from "socket.io";
 import BaseLogger from "../../utils/logger";
 import BaseChannel from "./baseChannel";
 import { RedisStore } from "connect-redis";
-import { createLobbySchema } from "../../validation/websockets/lobbies";
+import {
+  createLobbySchema,
+  setUserReadySchema,
+} from "../../validation/websockets/lobbies";
 import { LobbyChannelSocket, SocketError } from "../types";
 import LobbyController from "../../controllers/lobbyController";
 import { Lobby } from "../../models/redis/LobbyModel";
@@ -22,7 +25,7 @@ class LobbyChannel extends BaseChannel {
   }
 
   async registerEvents(socket: LobbyChannelSocket) {
-    socket.on("create_lobby", async (lobby: Lobby) => {
+    socket.on("create_lobby", (lobby: Lobby) => {
       const { error } = createLobbySchema.validate(lobby);
       if (error) {
         this.logSocketError(socket, "validation_error", error.message);
@@ -34,6 +37,16 @@ class LobbyChannel extends BaseChannel {
 
     socket.on("leave_current_lobby", () => {
       this.removeUserSessionLobby(socket);
+    });
+
+    socket.on("set_user_ready", (ready: { isReady: boolean }) => {
+      const { error } = setUserReadySchema.validate(ready);
+      if (error) {
+        this.logSocketError(socket, "validation_error", error.message);
+        return;
+      }
+
+      this.setUserReady(socket, ready.isReady);
     });
 
     socket.on("join_lobby", (lobbyId: string) => {
@@ -79,6 +92,16 @@ class LobbyChannel extends BaseChannel {
       );
       updatedSession.save();
       socket.emit("lobby_created", createdLobby);
+    } catch (error) {
+      this.handleError(socket, error as Error | SocketError);
+    }
+  }
+
+  private async setUserReady(socket: LobbyChannelSocket, ready: boolean) {
+    const session = socket.request.session;
+    try {
+      await this.lobbyController.setUserReady(session, ready);
+      socket.emit("user_ready", session.lobbyId, session.user.id, ready);
     } catch (error) {
       this.handleError(socket, error as Error | SocketError);
     }

@@ -4,10 +4,10 @@ import GameChannel from "./channels/gameChannel";
 import LobbyChannel from "./channels/lobbyChannel";
 import BaseLogger from "../utils/logger";
 import { RedisClient } from "../initDatastores";
-import { RedisStore } from "connect-redis";
 import session, { SessionOptions } from "express-session";
 import LobbyController from "../controllers/lobbyController";
 import GameController from "../controllers/gameController";
+import { UserSessionStore } from "../models/redis/UserSessionStore";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const wrap = (middleware: any) => (socket: any, next: any) =>
   middleware(socket.request, {}, next);
@@ -16,23 +16,19 @@ export function setupSocketIO(params: {
   httpServer: http.Server;
   logger: BaseLogger;
   redisClient: RedisClient;
-  sessionOptions: SessionOptions;
   lobbyController: LobbyController;
   gameController: GameController;
+  userSessionStore: UserSessionStore;
+  sessionOptions: SessionOptions;
 }) {
   const {
     httpServer,
     logger,
-    redisClient,
-    sessionOptions,
     lobbyController,
     gameController,
+    userSessionStore,
+    sessionOptions,
   } = params;
-
-  const redisStore = new RedisStore({
-    client: redisClient,
-    prefix: "session",
-  });
 
   const ioOptions: Partial<ServerOptions> = {};
   if (process.env.ENVIRONMENT === "production") {
@@ -60,7 +56,7 @@ export function setupSocketIO(params: {
   const lobbyChannel = new LobbyChannel(
     logger,
     io,
-    redisStore,
+    userSessionStore,
     lobbyController,
   );
   const gameChannel = new GameChannel(logger, io, gameController);
@@ -71,14 +67,6 @@ export function setupSocketIO(params: {
     logger.debug(`Session: (${JSON.stringify(session)})`);
     if (session.lobbyId !== "none") {
       socket.join(session.lobbyId);
-    }
-
-    try {
-      await redisClient.set(`user_socket_${userId}`, socket.id);
-    } catch (error) {
-      logger.error(
-        `Error setting user socket (${userId}) in redis: (${error})`,
-      );
     }
 
     socket.join(userId);
@@ -92,14 +80,6 @@ export function setupSocketIO(params: {
       logger.info(
         `User socket disconnected: (${socket.id}) User ID: (${userId})`,
       );
-
-      try {
-        await redisClient.del(`user_socket_${userId}`);
-      } catch (error) {
-        logger.error(
-          `Error deleting user socket (${userId}) from redis: (${error})`,
-        );
-      }
     });
   });
 

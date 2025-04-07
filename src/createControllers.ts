@@ -8,6 +8,7 @@ import LobbyController from "./controllers/lobbyController";
 import GameController from "./controllers/gameController";
 import { LobbyModel } from "./models/redis/LobbyModel";
 import { GameModel } from "./models/redis/GameModel";
+import { UserSessionStore } from "./models/redis/UserSessionStore";
 export interface Controllers {
   usersController: UsersController;
   cardsController: CardsController;
@@ -22,10 +23,22 @@ export default async function createControllers(params: {
   redisClient: RedisClient;
   lobbyModel: LobbyModel;
   gameModel: GameModel;
+  userSessionStore: UserSessionStore;
 }): Promise<Controllers> {
-  const { logger, sequelize, redisClient, lobbyModel, gameModel } = params;
+  const {
+    logger,
+    sequelize,
+    redisClient,
+    lobbyModel,
+    gameModel,
+    userSessionStore,
+  } = params;
 
-  const usersController = new UsersController(logger, redisClient);
+  const usersController = new UsersController(
+    logger,
+    redisClient,
+    userSessionStore,
+  );
   const cardsController = new CardsController(logger);
   const userDecksController = new UserDecksController(logger, sequelize);
   const lobbyController = new LobbyController(logger, lobbyModel);
