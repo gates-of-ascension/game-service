@@ -4,8 +4,8 @@ declare module "express-session" {
   interface Session {
     user: {
       id: string;
-      username: string;
       displayName: string;
+      username: string;
       createdAt: Date;
       updatedAt: Date;
     };

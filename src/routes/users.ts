@@ -49,12 +49,12 @@ export default (usersController: UsersController) => {
       const response = await usersController.login({
         username,
         password,
-        lobbyId: session.lobbyId,
+        session,
       });
 
-      session.user = response.user;
-      session.userDecksIds = response.userDecksIds;
-      session.lobbyId = response.lobbyId;
+      req.session.user = response.user;
+      req.session.userDecksIds = response.userDecksIds;
+      req.session.lobbyId = response.lobbyId;
 
       req.session.save((err) => {
         if (err) {

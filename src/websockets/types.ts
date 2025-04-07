@@ -2,10 +2,18 @@ import { Game } from "../models/redis/GameModel";
 import { Lobby } from "../models/redis/LobbyModel";
 import { Socket } from "socket.io";
 
+export type SocketErrorName =
+  | "client_error"
+  | "server_error"
+  | "validation_error"
+  | "error";
+
 export type LobbyChannelServerToClientEvents = {
   lobby_created: (lobby: Lobby) => void;
   game_started: (game: Game) => void;
   lobby_deleted: (lobbyId: string) => void;
+  lobby_joined: (lobbyId: string) => void;
+  user_ready: (lobbyId: string, userId: string, ready: boolean) => void;
   // Error events
   server_error: (error: string) => void;
   client_error: (error: string) => void;
@@ -20,9 +28,17 @@ export type LobbyChannelClientToServerEvents = {
   update_lobby: (lobby: Lobby) => void;
   delete_lobby: () => void;
   start_game: () => void;
+  set_user_ready: (ready: { isReady: boolean }) => void;
 };
 
 export type LobbyChannelSocket = Socket<
   LobbyChannelClientToServerEvents,
   LobbyChannelServerToClientEvents
 >;
+
+export class SocketError extends Error {
+  constructor(name: SocketErrorName, message: string) {
+    super(message);
+    this.name = name;
+  }
+}

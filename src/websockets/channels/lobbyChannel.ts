@@ -1,31 +1,31 @@
 import { Server, Socket } from "socket.io";
 import BaseLogger from "../../utils/logger";
 import BaseChannel from "./baseChannel";
-import { LobbyModel, Lobby } from "../../models/redis/LobbyModel";
-import { GameModel } from "../../models/redis/GameModel";
 import { RedisStore } from "connect-redis";
-import { createLobbySchema } from "../../validation/websockets/lobbies";
-import { LobbyChannelSocket } from "../types";
+import {
+  createLobbySchema,
+  setUserReadySchema,
+} from "../../validation/websockets/lobbies";
+import { LobbyChannelSocket, SocketError } from "../types";
+import LobbyController from "../../controllers/lobbyController";
+import { Lobby } from "../../models/redis/LobbyModel";
 
 class LobbyChannel extends BaseChannel {
-  private lobbyModel: LobbyModel;
-  private gameModel: GameModel;
+  private lobbyController: LobbyController;
   private redisStore: RedisStore;
   constructor(
     logger: BaseLogger,
     io: Server,
     redisStore: RedisStore,
-    lobbyModel: LobbyModel,
-    gameModel: GameModel,
+    lobbyController: LobbyController,
   ) {
     super(logger, io);
-    this.lobbyModel = lobbyModel;
-    this.gameModel = gameModel;
+    this.lobbyController = lobbyController;
     this.redisStore = redisStore;
   }
 
   async registerEvents(socket: LobbyChannelSocket) {
-    socket.on("create_lobby", async (lobby: Lobby) => {
+    socket.on("create_lobby", (lobby: Lobby) => {
       const { error } = createLobbySchema.validate(lobby);
       if (error) {
         this.logSocketError(socket, "validation_error", error.message);
@@ -37,6 +37,16 @@ class LobbyChannel extends BaseChannel {
 
     socket.on("leave_current_lobby", () => {
       this.removeUserSessionLobby(socket);
+    });
+
+    socket.on("set_user_ready", (ready: { isReady: boolean }) => {
+      const { error } = setUserReadySchema.validate(ready);
+      if (error) {
+        this.logSocketError(socket, "validation_error", error.message);
+        return;
+      }
+
+      this.setUserReady(socket, ready.isReady);
     });
 
     socket.on("join_lobby", (lobbyId: string) => {
@@ -56,98 +66,80 @@ class LobbyChannel extends BaseChannel {
     });
   }
 
+  private handleError(socket: Socket, error: Error | SocketError) {
+    this.logSocketError(socket, error.name, error.message);
+    if (error instanceof SocketError) {
+      socket.emit(error.name, error.message);
+    } else {
+      socket.emit("server_error", `Error creating lobby: (${error})`);
+    }
+  }
+
   private async handleCreateLobby(socket: Socket, lobby: Lobby) {
     try {
       const session = socket.request.session;
-      if (session.lobbyId !== "none") {
-        this.logSocketError(
-          socket,
-          "client_error",
-          "Cannot create lobby while in another lobby",
-        );
-        return;
-      }
+      const createdLobbyResult = await this.lobbyController.createLobby(
+        session,
+        lobby,
+      );
 
-      const createdLobby = await this.lobbyModel.create(lobby, session.user.id);
+      const { lobby: createdLobby, session: updatedSession } =
+        createdLobbyResult;
 
-      session.lobbyId = createdLobby.id;
       this.joinRoom(socket, createdLobby.id);
       this.logger.debug(
         `User (${socket.id}) created lobby (${createdLobby.id})`,
       );
-      session.save();
+      updatedSession.save();
       socket.emit("lobby_created", createdLobby);
     } catch (error) {
-      socket.emit("server_error", `Error creating lobby: (${error})`);
+      this.handleError(socket, error as Error | SocketError);
+    }
+  }
+
+  private async setUserReady(socket: LobbyChannelSocket, ready: boolean) {
+    const session = socket.request.session;
+    try {
+      await this.lobbyController.setUserReady(session, ready);
+      socket.emit("user_ready", session.lobbyId, session.user.id, ready);
+    } catch (error) {
+      this.handleError(socket, error as Error | SocketError);
     }
   }
 
   private async removeUserSessionLobby(socket: Socket) {
     const session = socket.request.session;
-    if (session.lobbyId !== "none") {
-      try {
-        await this.lobbyModel.removeUser(session.lobbyId, session.user.id);
-      } catch (error) {
-        const err = error as Error;
-        this.logSocketError(
-          socket,
-          "server_error",
-          `Cannot remove user from lobby: (${err.message})`,
-        );
-      }
-      session.lobbyId = "none";
+    let sessionResult;
+    try {
+      sessionResult =
+        await this.lobbyController.removeUserSessionLobby(session);
+      session.lobbyId = sessionResult.lobbyId;
       session.save();
       socket.emit("user_session_lobby_removed");
-    } else {
-      this.logSocketError(
-        socket,
-        "client_error",
-        "Cannot remove user from lobby, user is not in a lobby",
-      );
+    } catch (error) {
+      this.handleError(socket, error as Error | SocketError);
+      return;
     }
   }
 
   private async handleJoinLobby(socket: LobbyChannelSocket, lobbyId: string) {
     const session = socket.request.session;
-    if (session.lobbyId !== "none") {
-      this.logSocketError(
-        socket,
-        "client_error",
-        "Cannot join lobby while in another lobby",
-      );
-      return;
-    }
-
     try {
-      this.logger.debug(`User (${socket.id}) joined lobby (${lobbyId})`);
-      await this.lobbyModel.addUser(lobbyId, socket.data.userId);
+      await this.lobbyController.joinLobby(session, lobbyId);
       this.joinRoom(socket, lobbyId);
+      socket.emit("lobby_joined", lobbyId);
+      this.logger.debug(`User (${socket.id}) joined lobby (${lobbyId})`);
     } catch (error) {
-      socket.emit("server_error", `Error joining lobby: (${error})`);
+      this.handleError(socket, error as Error | SocketError);
     }
   }
 
   private async handleDeleteLobby(socket: LobbyChannelSocket) {
     const session = socket.request.session;
-    if (session.lobbyId === "none") {
-      socket.emit("client_error", "User is not in a lobby");
-      return;
-    }
-
-    const lobby = await this.lobbyModel.get(session.lobbyId);
-    if (!lobby) {
-      socket.emit("client_error", "Lobby not found");
-      return;
-    }
-
-    if (lobby.ownerId !== session.user.id) {
-      socket.emit("client_error", "User is not the owner of the lobby");
-      return;
-    }
 
     try {
       const lobbyId = session.lobbyId;
-      await this.lobbyModel.userDelete(lobbyId, socket.data.userId);
+      await this.lobbyController.deleteLobby(session, lobbyId);
       session.lobbyId = "none";
       socket.emit("lobby_deleted", lobbyId);
       this.logger.debug(
@@ -162,59 +154,19 @@ class LobbyChannel extends BaseChannel {
   private async handleStartGame(socket: LobbyChannelSocket) {
     // TODO: transaction
     const session = socket.request.session;
-    if (session.lobbyId === "none") {
-      socket.emit("client_error", "User is not in a lobby");
-      return;
-    }
-    const lobby = await this.lobbyModel.get(session.lobbyId);
-    if (!lobby) {
-      socket.emit("client_error", "Lobby not found");
-      return;
-    }
-    if (lobby.users.length < 2) {
-      socket.emit("client_error", "Lobby has less than 2 users");
-      return;
-    }
-    lobby.users.forEach((user) => {
-      if (!user.ready) {
-        socket.emit("client_error", `User (${user.username}) is not ready`);
-        return;
-      }
-    });
-    if (lobby.ownerId !== session.user.id) {
-      socket.emit("client_error", "User is not the owner of the lobby");
-      return;
-    }
     try {
       this.logger.debug(
         `User (${session.user.id}) started game (${session.lobbyId})`,
       );
-      const game = await this.gameModel.create(
-        {
-          lobbyId: session.lobbyId,
-          players: lobby.users.map((user) => ({
-            id: user.id,
-            username: user.username,
-          })),
-          gameData: {},
-        },
-        session.user.id,
-      );
-      await this.lobbyModel.setLobbyActive(session.lobbyId, false);
-      this.emitToRoom(session.lobbyId, "game-started", game);
+      this.emitToRoom(session.lobbyId, "game_started", {});
     } catch (error) {
-      socket.emit("server_error", `Error starting game: (${error})`);
-      await this.lobbyModel.setLobbyActive(session.lobbyId, true);
+      this.handleError(socket, error as Error | SocketError);
     }
   }
 
   private async handleUpdateLobby(socket: LobbyChannelSocket, lobby: Lobby) {
-    try {
-      await this.lobbyModel.update(lobby.id, lobby, socket.data.userId);
-      this.logger.debug(`User (${socket.id}) updated lobby (${lobby.id})`);
-    } catch (error) {
-      socket.emit("server_error", `Error updating lobby: (${error})`);
-    }
+    console.log("handleUpdateLobby", socket, lobby);
+    return;
   }
 }
 

@@ -6,11 +6,17 @@ import { CreateUserRequestBody, UpdateUserRequestBody } from "../types/user";
 import bcrypt from "bcrypt";
 import { RedisClient } from "../initDatastores";
 import UserDeck from "../models/postgres/UserDeck";
+import { Session } from "express-session";
+import {
+  UserSessionData,
+  UserSessionStore,
+} from "../models/redis/UserSessionStore";
 
 export default class UsersController {
   constructor(
     private readonly logger: BaseLogger,
     private readonly redisClient: RedisClient,
+    private readonly userSessionStore: UserSessionStore,
   ) {}
 
   async getUserById(userId: string) {
@@ -71,7 +77,7 @@ export default class UsersController {
   async login(requestBody: {
     username: string;
     password: string;
-    lobbyId?: string;
+    session: Session;
   }) {
     let user;
     try {
@@ -113,38 +119,9 @@ export default class UsersController {
       const errorResponse = formatSequelizeError(error as Error, this.logger);
       throw new ApiError(errorResponse.status, errorResponse.message);
     }
+    const userDecksIds = userDecks.map((userDeck) => userDeck.id);
 
-    let lobbyId = "none";
-    if (requestBody.lobbyId) {
-      try {
-        const lobby = await this.redisClient.get(
-          `lobby:${requestBody.lobbyId}`,
-        );
-        this.logger.debug(
-          `User (${user.username}) lobby (${requestBody.lobbyId}) found in redis: (${lobby})`,
-        );
-        if (!lobby) {
-          this.logger.warn(
-            `User (${user.username}) lobby (${requestBody.lobbyId}) not found in redis, returning none`,
-          );
-          lobbyId = "none";
-        } else {
-          lobbyId = requestBody.lobbyId;
-        }
-      } catch (error) {
-        const err = error as Error;
-        this.logger.error(
-          `User (${user.username}) error getting lobby (${requestBody.lobbyId}) from redis: (${err.message})`,
-        );
-        throw new ApiError(500, `Error getting lobby: (${err.message})`);
-      }
-    }
-
-    this.logger.debug(
-      `User (${user.username}) logged in, returning lobby (${lobbyId})`,
-    );
-
-    return {
+    const userSession = {
       user: {
         id: user.id,
         displayName: user.displayName,
@@ -152,9 +129,24 @@ export default class UsersController {
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
-      userDecksIds: userDecks.map((userDeck) => userDeck.id),
-      lobbyId,
-    };
+      userDecksIds,
+      lobbyId: "none",
+    } as UserSessionData;
+
+    let lobbyId = "none";
+    try {
+      lobbyId = await this.userSessionStore.transferUserSession(
+        user.id,
+        requestBody.session.id,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Error during transfer of previous user session (${user.username}) from redis: (${error})`,
+      );
+    }
+    userSession.lobbyId = lobbyId;
+
+    return userSession;
   }
 
   async updateUser(userId: string, requestBody: UpdateUserRequestBody) {
