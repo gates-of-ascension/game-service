@@ -1,26 +1,25 @@
 import { expect } from "@jest/globals";
-import setupTestEnvironment from "../util/testSetup";
+import setupTestEnvironment from "../../util/testSetup";
 import { Express } from "express";
 import request from "supertest";
-import Card from "../../src/models/postgres/Card";
-import UserDeckCard from "../../src/models/postgres/UserDeckCard";
-import UserDeck from "../../src/models/postgres/UserDeck";
-import User from "../../src/models/postgres/User";
+import Card from "../../../src/models/postgres/Card";
+import { cleanupDataStores } from "../../util/dataStoreCleanup";
+import { RedisClient } from "../../../src/initDatastores";
 
 describe("Cards", () => {
   let app: Express;
+  let redisClient: RedisClient;
 
   beforeAll(async () => {
-    const { app: testApp } = await setupTestEnvironment();
+    const { app: testApp, redisClient: testRedisClient } =
+      await setupTestEnvironment();
     app = testApp;
-    await UserDeckCard.destroy({ where: {} });
-    await UserDeck.destroy({ where: {} });
-    await Card.destroy({ where: {} });
-    await User.destroy({ where: {} });
+    redisClient = testRedisClient;
+    await cleanupDataStores(redisClient);
   });
 
   beforeEach(async () => {
-    await Card.destroy({ where: {} });
+    await cleanupDataStores(redisClient);
   });
 
   describe("POST /v1/cards", () => {

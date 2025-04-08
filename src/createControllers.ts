@@ -41,7 +41,7 @@ export default async function createControllers(params: {
   );
   const cardsController = new CardsController(logger);
   const userDecksController = new UserDecksController(logger, sequelize);
-  const lobbyController = new LobbyController(logger, lobbyModel);
+  const lobbyController = new LobbyController(logger, lobbyModel, gameModel);
   const gameController = new GameController(logger, gameModel);
   return {
     usersController,

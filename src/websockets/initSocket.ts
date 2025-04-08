@@ -53,6 +53,25 @@ export function setupSocketIO(params: {
     }
   });
 
+  io.use(async (socket, next) => {
+    const session = socket.request.session;
+    let userActiveSocket;
+    try {
+      userActiveSocket = await userSessionStore.getUserActiveSocket(
+        session.user.id,
+      );
+    } catch (error) {
+      logger.error(
+        `Error getting user socket (${session.user.username}): (${error})`,
+      );
+      next(new Error("User could not be authenticated due to error"));
+    }
+    if (userActiveSocket) {
+      next(new Error("User already connected"));
+    }
+    next();
+  });
+
   const lobbyChannel = new LobbyChannel(
     logger,
     io,
@@ -63,8 +82,13 @@ export function setupSocketIO(params: {
 
   io.on("connection", async (socket) => {
     const session = socket.request.session;
-    const userId = session.user.id;
-    logger.debug(`Session: (${JSON.stringify(session)})`);
+    const { id: userId, username } = session.user;
+
+    logger.debug(
+      `User (${username}) connected to websocket with session: (${JSON.stringify(
+        session,
+      )})`,
+    );
     if (session.lobbyId !== "none") {
       socket.join(session.lobbyId);
     }
@@ -74,12 +98,27 @@ export function setupSocketIO(params: {
     lobbyChannel.registerEvents(socket);
     gameChannel.registerEvents(socket);
 
+    try {
+      await userSessionStore.setUserActiveSocket(userId, socket.id);
+    } catch (error) {
+      logger.error(`Error setting user socket (${username}): (${error})`);
+      socket.emit("connect_error", {
+        message: "Error setting user socket in redis",
+      });
+    }
+
     logger.info(`User socket connected: (${socket.id}) (User ID: ${userId})`);
 
     socket.on("disconnect", async () => {
       logger.info(
         `User socket disconnected: (${socket.id}) User ID: (${userId})`,
       );
+
+      try {
+        await userSessionStore.deleteUserActiveSocket(userId);
+      } catch (error) {
+        logger.error(`Error deleting user socket (${username}): (${error})`);
+      }
     });
   });
 

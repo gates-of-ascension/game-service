@@ -3,11 +3,14 @@ import { ApiError } from "../middleware/apiError";
 import { Lobby, LobbyModel } from "../models/redis/LobbyModel";
 import BaseLogger from "../utils/logger";
 import { SocketError } from "../websockets/types";
+import { GameModel } from "../models/redis/GameModel";
+import { v4 as uuidv4 } from "uuid";
 
 export default class LobbyController {
   constructor(
     private readonly logger: BaseLogger,
     private readonly lobbyModel: LobbyModel,
+    private readonly gameModel: GameModel,
   ) {}
 
   async getActiveLobbies() {
@@ -144,7 +147,7 @@ export default class LobbyController {
     return { session, secondUserInLobby };
   }
 
-  async startGame(session: Session, lobbyId: string) {
+  async startGame(session: Session) {
     if (session.lobbyId === "none") {
       throw new SocketError(
         "client_error",
@@ -164,7 +167,7 @@ export default class LobbyController {
       );
     }
 
-    if (lobby.users.length < 2) {
+    if (lobby.users.length !== 1) {
       throw new SocketError("client_error", "Lobby has less than 2 users");
     }
 
@@ -176,12 +179,41 @@ export default class LobbyController {
         );
       }
     });
-    // const game = await this.gameModel.create(session.user.id, lobbyId);
-    // try {
-    //   await this.lobbyModel.setLobbyActive(lobbyId, false);
-    // } catch (error) {
-    //   throw new SocketError("server_error", `Error starting game: (${error})`);
-    // }
-    return { session, lobbyId };
+
+    const gameId = uuidv4();
+    const gamePlayers = [
+      {
+        id: session.user.id,
+        displayName: session.user.displayName,
+      },
+    ];
+    lobby.users.forEach((user) => {
+      gamePlayers.push({
+        id: user.id,
+        displayName: user.displayName,
+      });
+    });
+
+    let game;
+    try {
+      game = await this.gameModel.create({
+        lobbyId: session.lobbyId,
+        players: gamePlayers,
+        id: gameId,
+        gameData: {},
+      });
+    } catch (error) {
+      throw new SocketError("server_error", `Error starting game: (${error})`);
+    }
+
+    try {
+      await this.lobbyModel.setLobbyActive(session.lobbyId, false);
+    } catch (error) {
+      throw new SocketError("server_error", `Error starting game: (${error})`);
+    }
+
+    session.gameId = gameId;
+
+    return { session, game };
   }
 }

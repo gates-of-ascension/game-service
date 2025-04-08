@@ -1,14 +1,12 @@
 import { expect } from "@jest/globals";
-import setupTestEnvironment from "../util/testSetup";
+import setupTestEnvironment from "../../util/testSetup";
 import { Express } from "express";
 import request from "supertest";
-import User from "../../src/models/postgres/User";
-import UserDeckCard from "../../src/models/postgres/UserDeckCard";
-import UserDeck from "../../src/models/postgres/UserDeck";
-import Card from "../../src/models/postgres/Card";
+import User from "../../../src/models/postgres/User";
 import bcrypt from "bcrypt";
-import { createUserAndLogin } from "../util/authHelper";
-import { RedisClient } from "../../src/initDatastores";
+import { createUserAndLogin } from "../../util/authHelper";
+import { RedisClient } from "../../../src/initDatastores";
+import { cleanupDataStores } from "../../util/dataStoreCleanup";
 
 describe("Users", () => {
   let app: Express;
@@ -19,15 +17,11 @@ describe("Users", () => {
       await setupTestEnvironment();
     app = testApp;
     redisClient = testRedisClient;
-    await UserDeckCard.destroy({ where: {} });
-    await UserDeck.destroy({ where: {} });
-    await Card.destroy({ where: {} });
-    await User.destroy({ where: {} });
-    await redisClient.flushAll();
+    await cleanupDataStores(redisClient);
   });
 
   beforeEach(async () => {
-    await User.destroy({ where: {} });
+    await cleanupDataStores(redisClient);
   });
 
   describe("POST /v1/users/signup", () => {

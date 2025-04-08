@@ -15,6 +15,7 @@ export interface UserSessionData {
   };
   userDecksIds: string[];
   lobbyId: string;
+  gameId: string;
 }
 
 export class UserSessionStore extends RedisStore {
@@ -64,10 +65,10 @@ export class UserSessionStore extends RedisStore {
     }
   }
 
-  async setUserSocket(userId: string, socketId: string): Promise<void> {
+  async setUserActiveSocket(userId: string, socketId: string): Promise<void> {
     try {
-      const userSocketKey = `user_socket:${userId}`;
-      await this.redisClient.set(userSocketKey, socketId, {
+      const userActiveSocketKey = `user_active_socket:${userId}`;
+      await this.redisClient.set(userActiveSocketKey, socketId, {
         EX: this.defaultTTL,
       });
     } catch (error) {
@@ -75,20 +76,20 @@ export class UserSessionStore extends RedisStore {
     }
   }
 
-  async getUserSocket(userId: string): Promise<string | null> {
+  async getUserActiveSocket(userId: string): Promise<string | null> {
     try {
-      const userSocketKey = `user_socket:${userId}`;
-      return await this.redisClient.get(userSocketKey);
+      const userActiveSocketKey = `user_active_socket:${userId}`;
+      return await this.redisClient.get(userActiveSocketKey);
     } catch (error) {
       this.logger.error(`Error getting user socket (${userId}): (${error})`);
       return null;
     }
   }
 
-  async deleteUserSocket(userId: string): Promise<void> {
+  async deleteUserActiveSocket(userId: string): Promise<void> {
     try {
-      const userSocketKey = `user_socket:${userId}`;
-      await this.redisClient.del(userSocketKey);
+      const userActiveSocketKey = `user_active_socket:${userId}`;
+      await this.redisClient.del(userActiveSocketKey);
     } catch (error) {
       this.logger.error(`Error deleting user socket (${userId}): (${error})`);
     }
@@ -109,6 +110,7 @@ export class UserSessionStore extends RedisStore {
       user: session.user,
       userDecksIds: session.userDecksIds,
       lobbyId: session.lobbyId || "none",
+      gameId: session.gameId || "none",
     };
   }
 
