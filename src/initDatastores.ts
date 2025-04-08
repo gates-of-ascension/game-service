@@ -62,10 +62,14 @@ export async function initRedisDatabase(options: InitRedisOptions) {
   const redisClient = createClient({
     url: `redis://${redisInfo.host}:${redisInfo.port}`,
   });
-  redisClient.on("error", (err) => logger.error(err));
   logger.info("Connecting to Redis...");
-  await redisClient.connect();
-  logger.info("Redis connected!");
+  try {
+    await redisClient.connect();
+    logger.info("Redis connected!");
+  } catch (err) {
+    logger.error(JSON.stringify(err));
+    throw err;
+  }
   return {
     redisClient: redisClient as RedisClient,
     lobbyModel: new LobbyModel(redisClient, logger),

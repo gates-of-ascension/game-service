@@ -1,6 +1,7 @@
 import { Express } from "express";
 import request from "supertest";
 import User from "../../src/models/postgres/User";
+import { io as ioc } from "socket.io-client";
 
 export async function createUserAndLogin(app: Express, userData = {}) {
   const defaultUser = {
@@ -33,4 +34,35 @@ export async function createUserAndLogin(app: Express, userData = {}) {
     user, // The user object with ID for route parameters
     cookies,
   };
+}
+
+export async function createUserClientSocket(authCookie: string) {
+  const socketOptions = {
+    transportOptions: {
+      polling: {
+        extraHeaders: {
+          Cookie: authCookie,
+        },
+      },
+    },
+  };
+  const socket = ioc(`http://localhost:${process.env.PORT!}`, socketOptions);
+  return socket;
+}
+
+export async function loginAndCreateSocket(
+  app: Express,
+  user?: {
+    username: string;
+    displayName: string;
+  },
+) {
+  const {
+    agent,
+    user: createdUser,
+    cookies,
+  } = await createUserAndLogin(app, user);
+  const authCookie = cookies[0].split(";")[0];
+  const socket = await createUserClientSocket(authCookie);
+  return { agent, socket, user: createdUser, authCookie };
 }

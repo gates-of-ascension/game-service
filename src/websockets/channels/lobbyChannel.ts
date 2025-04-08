@@ -4,6 +4,7 @@ import BaseChannel from "./baseChannel";
 import { RedisStore } from "connect-redis";
 import {
   createLobbySchema,
+  joinLobbySchema,
   setUserReadySchema,
 } from "../../validation/websockets/lobbies";
 import { LobbyChannelSocket, SocketError } from "../types";
@@ -25,36 +26,42 @@ class LobbyChannel extends BaseChannel {
   }
 
   async registerEvents(socket: LobbyChannelSocket) {
-    socket.on("create_lobby", (lobby: Lobby) => {
-      const { error } = createLobbySchema.validate(lobby);
+    socket.on("create_lobby", (message: Lobby) => {
+      const { error } = createLobbySchema.validate(message);
       if (error) {
         this.logSocketError(socket, "validation_error", error.message);
         return;
       }
 
-      this.handleCreateLobby(socket, lobby);
+      this.handleCreateLobby(socket, message);
     });
 
     socket.on("leave_current_lobby", () => {
       this.removeUserSessionLobby(socket);
     });
 
-    socket.on("set_user_ready", (ready: { isReady: boolean }) => {
-      const { error } = setUserReadySchema.validate(ready);
+    socket.on("set_user_ready", (message: { isReady: boolean }) => {
+      const { error } = setUserReadySchema.validate(message);
       if (error) {
         this.logSocketError(socket, "validation_error", error.message);
         return;
       }
 
-      this.setUserReady(socket, ready.isReady);
+      this.setUserReady(socket, message.isReady);
     });
 
-    socket.on("join_lobby", (lobbyId: string) => {
-      this.handleJoinLobby(socket, lobbyId);
+    socket.on("join_lobby", (message: { lobbyId: string }) => {
+      const { error } = joinLobbySchema.validate(message);
+      if (error) {
+        this.logSocketError(socket, "validation_error", error.message);
+        return;
+      }
+
+      this.handleJoinLobby(socket, message.lobbyId);
     });
 
-    socket.on("update_lobby", (lobby: Lobby) => {
-      this.handleUpdateLobby(socket, lobby);
+    socket.on("update_lobby", (message: Lobby) => {
+      this.handleUpdateLobby(socket, message);
     });
 
     socket.on("delete_lobby", () => {
@@ -101,7 +108,11 @@ class LobbyChannel extends BaseChannel {
     const session = socket.request.session;
     try {
       await this.lobbyController.setUserReady(session, ready);
-      socket.emit("user_ready", session.lobbyId, session.user.id, ready);
+      socket.emit("user_ready", {
+        lobbyId: session.lobbyId,
+        userId: session.user.id,
+        ready,
+      });
     } catch (error) {
       this.handleError(socket, error as Error | SocketError);
     }
@@ -127,7 +138,8 @@ class LobbyChannel extends BaseChannel {
     try {
       await this.lobbyController.joinLobby(session, lobbyId);
       this.joinRoom(socket, lobbyId);
-      socket.emit("lobby_joined", lobbyId);
+      socket.emit("lobby_joined", { lobbyId });
+      session.save();
       this.logger.debug(`User (${socket.id}) joined lobby (${lobbyId})`);
     } catch (error) {
       this.handleError(socket, error as Error | SocketError);
@@ -141,7 +153,7 @@ class LobbyChannel extends BaseChannel {
       const lobbyId = session.lobbyId;
       await this.lobbyController.deleteLobby(session, lobbyId);
       session.lobbyId = "none";
-      socket.emit("lobby_deleted", lobbyId);
+      socket.emit("lobby_deleted", { lobbyId });
       this.logger.debug(
         `User (${session.user.username}) deleted lobby (${lobbyId})`,
       );

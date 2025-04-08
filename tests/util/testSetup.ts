@@ -67,5 +67,8 @@ export default async function setupTestEnvironment() {
     redisClient,
     userSessionStore,
     server,
+    sequelize,
+    lobbyModel,
+    gameModel,
   };
 }

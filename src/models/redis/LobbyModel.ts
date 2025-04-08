@@ -73,18 +73,8 @@ export class LobbyModel extends BaseRedisModel<Lobby> {
     return JSON.parse(data) as Lobby;
   }
 
-  async update(id: string, data: Lobby, userId: string): Promise<void> {
-    const lobby = await this.get(id);
-    if (!lobby) throw new Error(`Lobby with id (${id}) not found`);
-
-    if (lobby.owner.id !== userId) {
-      throw new Error(
-        `Lobby with id (${id}) is not owned by user with id (${userId})`,
-      );
-    }
-
+  async update(id: string, data: Lobby): Promise<void> {
     const updatedLobby = {
-      ...lobby,
       ...data,
       updatedAt: Date.now(),
     };
@@ -92,20 +82,6 @@ export class LobbyModel extends BaseRedisModel<Lobby> {
     await this.redisClient.set(this.getKey(id), JSON.stringify(updatedLobby), {
       EX: this.defaultTTL,
     });
-  }
-
-  async userDelete(id: string, userId: string): Promise<void> {
-    const lobby = await this.get(id);
-    if (!lobby) throw new Error(`Lobby with id (${id}) not found`);
-
-    if (lobby.owner.id !== userId) {
-      throw new Error(
-        `Lobby with id (${id}) is not owned by user with id (${userId})`,
-      );
-    }
-
-    await this.redisClient.del(this.getKey(id));
-    await this.redisClient.sRem("active_lobbies", id);
   }
 
   async delete(id: string): Promise<void> {
@@ -139,7 +115,9 @@ export class LobbyModel extends BaseRedisModel<Lobby> {
     displayName: string,
   ): Promise<void> {
     const lobby = await this.get(lobbyId);
-    if (!lobby) throw new Error(`Lobby with id (${lobbyId}) not found`);
+    if (!lobby) {
+      throw new Error(`Lobby with id (${lobbyId}) not found`);
+    }
 
     if (lobby.users.length >= DEFAULT_MAX_PLAYERS) {
       throw new Error(`Lobby with id (${lobbyId}) is already full!`);
@@ -159,7 +137,7 @@ export class LobbyModel extends BaseRedisModel<Lobby> {
       joinedAt: Date.now(),
     });
 
-    await this.update(lobbyId, lobby, userId);
+    await this.update(lobbyId, lobby);
   }
 
   async removeUser(lobbyId: string, userId: string): Promise<void> {
@@ -171,25 +149,19 @@ export class LobbyModel extends BaseRedisModel<Lobby> {
       return;
     }
 
-    lobby.users = lobby.users.filter((u) => u.id !== userId);
-
-    if (lobby.users.length === 0) {
+    if (lobby.owner.id === userId) {
       this.logger.warn(
-        `Lobby with id (${lobbyId}) is now empty, deleting lobby...`,
-      );
-      await this.delete(lobbyId);
-    } else if (lobby.owner.id === userId) {
-      this.logger.info(
         `Lobby with id (${lobbyId}) owner (${userId}) left, selecting new owner...`,
       );
       if (lobby.users.length === 1) {
         lobby.owner = lobby.users[0];
-        await this.update(lobbyId, lobby, userId);
+        await this.update(lobbyId, lobby);
       } else {
         await this.delete(lobbyId);
       }
     } else {
-      await this.update(lobbyId, lobby, userId);
+      lobby.users = lobby.users.filter((u) => u.id !== userId);
+      await this.update(lobbyId, lobby);
     }
   }
 
@@ -203,7 +175,7 @@ export class LobbyModel extends BaseRedisModel<Lobby> {
 
     if (lobby.owner.id === userId) {
       lobby.owner.isReady = ready;
-      await this.update(lobbyId, lobby, userId);
+      await this.update(lobbyId, lobby);
       return;
     }
 
@@ -215,6 +187,6 @@ export class LobbyModel extends BaseRedisModel<Lobby> {
 
     lobby.users[userIndex].isReady = ready;
 
-    await this.update(lobbyId, lobby, userId);
+    await this.update(lobbyId, lobby);
   }
 }

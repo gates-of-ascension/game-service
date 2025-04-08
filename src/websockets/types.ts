@@ -9,11 +9,15 @@ export type SocketErrorName =
   | "error";
 
 export type LobbyChannelServerToClientEvents = {
-  lobby_created: (lobby: Lobby) => void;
-  game_started: (game: Game) => void;
-  lobby_deleted: (lobbyId: string) => void;
-  lobby_joined: (lobbyId: string) => void;
-  user_ready: (lobbyId: string, userId: string, ready: boolean) => void;
+  lobby_created: (message: { lobby: Lobby }) => void;
+  game_started: (message: { game: Game }) => void;
+  lobby_deleted: (message: { lobbyId: string }) => void;
+  lobby_joined: (message: { lobbyId: string }) => void;
+  user_ready: (message: {
+    lobbyId: string;
+    userId: string;
+    ready: boolean;
+  }) => void;
   // Error events
   server_error: (error: string) => void;
   client_error: (error: string) => void;
@@ -22,13 +26,13 @@ export type LobbyChannelServerToClientEvents = {
 };
 
 export type LobbyChannelClientToServerEvents = {
-  create_lobby: (lobby: Lobby) => void;
+  create_lobby: (message: Lobby) => void;
   leave_current_lobby: () => void;
-  join_lobby: (lobbyId: string) => void;
-  update_lobby: (lobby: Lobby) => void;
+  join_lobby: (message: { lobbyId: string }) => void;
+  update_lobby: (message: Lobby) => void;
   delete_lobby: () => void;
   start_game: () => void;
-  set_user_ready: (ready: { isReady: boolean }) => void;
+  set_user_ready: (message: { isReady: boolean }) => void;
 };
 
 export type LobbyChannelSocket = Socket<

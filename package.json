@@ -7,7 +7,7 @@
     "build": "tsc --sourceMap false -p tsconfig.json",
     "start": "ts-node -r dotenv/config src/index.ts",
     "dev": "nodemon -r dotenv/config src/index.ts",
-    "test": "jest"
+    "test": "jest --force-exit"
   },
   "repository": {
     "type": "git",

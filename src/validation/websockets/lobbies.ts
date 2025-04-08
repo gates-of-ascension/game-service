@@ -8,3 +8,7 @@ export const createLobbySchema = Joi.object({
 export const setUserReadySchema = Joi.object({
   isReady: Joi.boolean().strict().required(),
 });
+
+export const joinLobbySchema = Joi.object({
+  lobbyId: Joi.string().required(),
+});
