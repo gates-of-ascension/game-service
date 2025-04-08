@@ -17,12 +17,14 @@ import {
   setUserReady,
 } from "../../util/websocketUtils";
 import { cleanupDataStores } from "../../util/dataStoreCleanup";
+import { GameModel } from "../../../src/models/redis/GameModel";
 
 describe("Lobbies", () => {
   let app: Express;
   let redisClient: RedisClient;
   let server: http.Server;
   let lobbyModel: LobbyModel;
+  let gameModel: GameModel;
   let userSessionStore: UserSessionStore;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let sequelize: Sequelize;
@@ -35,11 +37,13 @@ describe("Lobbies", () => {
       userSessionStore: testUserSessionStore,
       lobbyModel: testLobbyModel,
       sequelize: testSequelize,
+      gameModel: testGameModel,
     } = await setupTestEnvironment();
     app = testApp;
     redisClient = testRedisClient;
     server = testServer;
     lobbyModel = testLobbyModel;
+    gameModel = testGameModel;
     userSessionStore = testUserSessionStore;
     sequelize = testSequelize;
     await cleanupDataStores(redisClient);
@@ -375,6 +379,100 @@ describe("Lobbies", () => {
       const updatedSession1 = await userSessionStore.getUserSession(sessionId1);
       expect(updatedSession1).not.toBeNull();
       expect(updatedSession1?.lobbyId).toBe(userSession1!.lobbyId);
+    });
+  });
+
+  describe("start game", () => {
+    it("should return a client error if the user is not in a lobby", async () => {
+      const { socket } = await loginAndCreateSocket(app);
+      socket.connect();
+      await waitFor(socket, "connect");
+
+      socket.emit("start_game");
+
+      await waitFor(socket, "client_error");
+    });
+
+    it("should return a client error if the user is not the owner of the lobby", async () => {
+      const { socket: socket1, user: user1 } = await loginAndCreateSocket(app);
+      socket1.connect();
+      await waitFor(socket1, "connect");
+
+      const { socket: socket2 } = await loginAndCreateSocket(app, {
+        username: "testuser2",
+        displayName: "Test User 2",
+      });
+      socket2.connect();
+      await waitFor(socket2, "connect");
+
+      await createLobby(socket1, "Test Lobby");
+
+      const sessionId1 = await userSessionStore.getUserActiveSession(user1.id);
+      if (!sessionId1) {
+        throw new Error("No session id found");
+      }
+      const userSession1 = await userSessionStore.getUserSession(sessionId1);
+      expect(userSession1).not.toBeNull();
+      expect(userSession1?.lobbyId).not.toBe("none");
+
+      socket2.emit("start_game");
+
+      await waitFor(socket2, "client_error");
+    });
+
+    it("should return a client error if the lobby has less than 1 users", async () => {
+      const { socket: socket1 } = await loginAndCreateSocket(app);
+      socket1.connect();
+      await waitFor(socket1, "connect");
+
+      await createLobby(socket1, "Test Lobby");
+
+      socket1.emit("start_game");
+
+      await waitFor(socket1, "client_error");
+    });
+
+    it("should start a game and add the users to the game in redis", async () => {
+      const { socket: socket1, user: user1 } = await loginAndCreateSocket(app);
+      socket1.connect();
+      await waitFor(socket1, "connect");
+
+      await createLobby(socket1, "Test Lobby");
+
+      const sessionId1 = await userSessionStore.getUserActiveSession(user1.id);
+      if (!sessionId1) {
+        throw new Error("No session id found");
+      }
+      const userSession1 = await userSessionStore.getUserSession(sessionId1);
+      expect(userSession1).not.toBeNull();
+      expect(userSession1?.lobbyId).not.toBe("none");
+
+      const { socket: socket2, user: user2 } = await loginAndCreateSocket(app, {
+        username: "testuser2",
+        displayName: "Test User 2",
+      });
+      socket2.connect();
+      await waitFor(socket2, "connect");
+
+      await joinLobby(socket2, userSession1!.lobbyId!);
+
+      await setUserReady(socket2);
+
+      socket1.emit("start_game");
+
+      await waitFor(socket1, "game_started");
+
+      const sessionId2 = await userSessionStore.getUserActiveSession(user1.id);
+      if (!sessionId2) {
+        throw new Error("No session id found");
+      }
+      const userSession2 = await userSessionStore.getUserSession(sessionId2);
+
+      const game = await gameModel.get(userSession2!.gameId!);
+      expect(game).not.toBeNull();
+      expect(game?.players.length).toBe(2);
+      expect(game?.players[0].id).toBe(user1.id);
+      expect(game?.players[1].id).toBe(user2.id);
     });
   });
 });

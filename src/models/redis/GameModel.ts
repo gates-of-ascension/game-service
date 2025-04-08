@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from "uuid";
 
 export type GamePlayer = {
   id: string;
+  displayName: string;
 };
 
 export type Game = {
@@ -20,6 +21,7 @@ export type Game = {
 export type CreateGameOptions = {
   lobbyId: string;
   players: GamePlayer[];
+  id?: string;
   gameData: Record<string, unknown>;
 };
 
@@ -28,11 +30,11 @@ export class GameModel extends BaseRedisModel<Game> {
     super(redisClient, "game", logger);
   }
 
-  async create(data: CreateGameOptions, userId: string): Promise<string> {
+  async create(data: CreateGameOptions): Promise<string> {
     const game = {
       ...data,
-      id: uuidv4(),
-      players: [userId],
+      id: data.id || uuidv4(),
+      players: data.players,
       startedAt: Date.now(),
       updatedAt: Date.now(),
     };

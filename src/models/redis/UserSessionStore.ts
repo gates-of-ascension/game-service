@@ -15,6 +15,7 @@ export interface UserSessionData {
   };
   userDecksIds: string[];
   lobbyId: string;
+  gameId: string;
 }
 
 export class UserSessionStore extends RedisStore {
@@ -109,6 +110,7 @@ export class UserSessionStore extends RedisStore {
       user: session.user,
       userDecksIds: session.userDecksIds,
       lobbyId: session.lobbyId || "none",
+      gameId: session.gameId || "none",
     };
   }
 

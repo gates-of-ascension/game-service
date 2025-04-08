@@ -11,5 +11,6 @@ declare module "express-session" {
     };
     userDecksIds: string[];
     lobbyId: string;
+    gameId: string;
   }
 }

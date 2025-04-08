@@ -170,7 +170,10 @@ class LobbyChannel extends BaseChannel {
       this.logger.debug(
         `User (${session.user.id}) started game (${session.lobbyId})`,
       );
+      const { session: updatedSession } =
+        await this.lobbyController.startGame(session);
       this.emitToRoom(session.lobbyId, "game_started", {});
+      updatedSession.save();
     } catch (error) {
       this.handleError(socket, error as Error | SocketError);
     }
