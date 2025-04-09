@@ -78,8 +78,9 @@ export default class LobbyController {
       );
     }
 
+    const lobbyId = session.lobbyId;
     try {
-      await this.lobbyModel.removeUser(session.lobbyId, session.user.id);
+      await this.lobbyModel.removeUser(lobbyId, session.user.id);
     } catch (error) {
       throw new SocketError(
         "server_error",
@@ -88,7 +89,7 @@ export default class LobbyController {
     }
 
     session.lobbyId = "none";
-    return session;
+    return { session, lobbyId };
   }
 
   async joinLobby(session: Session, lobbyId: string) {
@@ -194,14 +195,16 @@ export default class LobbyController {
       });
     });
 
-    let game;
+    const gameData = {
+      lobbyId: session.lobbyId,
+      id: gameId,
+      players: gamePlayers,
+      gameData: {},
+      startedAt: Date.now(),
+      updatedAt: Date.now(),
+    };
     try {
-      game = await this.gameModel.create({
-        lobbyId: session.lobbyId,
-        players: gamePlayers,
-        id: gameId,
-        gameData: {},
-      });
+      await this.gameModel.create(gameData);
     } catch (error) {
       throw new SocketError("server_error", `Error starting game: (${error})`);
     }
@@ -214,6 +217,6 @@ export default class LobbyController {
 
     session.gameId = gameId;
 
-    return { session, game };
+    return { session, game: gameData };
   }
 }

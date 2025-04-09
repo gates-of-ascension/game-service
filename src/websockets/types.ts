@@ -18,6 +18,9 @@ export type LobbyChannelServerToClientEvents = {
     userId: string;
     ready: boolean;
   }) => void;
+  user_joined: (message: { userId: string; displayName: string }) => void;
+  user_left: (message: { userId: string; displayName: string }) => void;
+  user_session_lobby_removed: () => void;
   // Error events
   server_error: (error: string) => void;
   client_error: (error: string) => void;

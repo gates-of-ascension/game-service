@@ -10,11 +10,11 @@ import Sequelize from "@sequelize/core";
 import http from "http";
 import { loginAndCreateSocket } from "../../util/authHelper";
 import {
-  waitFor,
   createLobby,
   joinLobby,
   expectLobbyState,
   setUserReady,
+  waitForMultipleSocketsAndEvents,
 } from "../../util/websocketUtils";
 import { cleanupDataStores } from "../../util/dataStoreCleanup";
 import { GameModel } from "../../../src/models/redis/GameModel";
@@ -73,17 +73,32 @@ describe("Lobbies", () => {
         name: "Test Lobby",
       });
 
-      await waitFor(socket, "connect_error");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket,
+          event: "connect_error",
+        },
+      ]);
     });
 
     it("should fail if the user is already connected to the websocket", async () => {
       const { socket: socket1, authCookie } = await loginAndCreateSocket(app);
       socket1.connect();
-      await waitFor(socket1, "connect");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket1,
+          event: "connect",
+        },
+      ]);
 
       const socket2 = await createUserClientSocket(authCookie);
       socket2.connect();
-      await waitFor(socket2, "connect_error");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket2,
+          event: "connect_error",
+        },
+      ]);
       expect(socket2).toBeDefined();
       expect(socket2.connected).toBe(false);
       expect(socket1.connected).toBe(true);
@@ -92,7 +107,12 @@ describe("Lobbies", () => {
     it("should connect to the websocket with a valid session", async () => {
       const { socket, user } = await loginAndCreateSocket(app);
       socket.connect();
-      await waitFor(socket, "connect");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket,
+          event: "connect",
+        },
+      ]);
 
       expect(socket).toBeDefined();
       expect(socket.connected).toBe(true);
@@ -119,7 +139,12 @@ describe("Lobbies", () => {
         name: "",
       });
 
-      await waitFor(socket, "validation_error");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket,
+          event: "validation_error",
+        },
+      ]);
       const sessionId = await userSessionStore.getUserActiveSession(user.id);
       if (!sessionId) {
         throw new Error("No session id found");
@@ -132,7 +157,12 @@ describe("Lobbies", () => {
     it("should create a lobby and add the user to the lobby as an owner in redis", async () => {
       const { socket, user } = await loginAndCreateSocket(app);
       socket.connect();
-      await waitFor(socket, "connect");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket,
+          event: "connect",
+        },
+      ]);
       const sessionId = await userSessionStore.getUserActiveSession(user.id);
       if (!sessionId) {
         throw new Error("No session id found");
@@ -167,20 +197,171 @@ describe("Lobbies", () => {
         lobbyId: "",
       });
 
-      await waitFor(socket, "validation_error");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket,
+          event: "validation_error",
+        },
+      ]);
     });
 
-    it("should join a lobby and add the user to the lobby in redis", async () => {
+    it("should return a client error if the user is already in the lobby", async () => {
       const { socket: socket1, user: user1 } = await loginAndCreateSocket(app);
       socket1.connect();
-      await waitFor(socket1, "connect");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket1,
+          event: "connect",
+        },
+      ]);
+
+      await createLobby(socket1, "Test Lobby");
+
+      socket1.emit("join_lobby", {
+        lobbyId: user1.id,
+      });
+
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket1,
+          event: "client_error",
+        },
+      ]);
+    });
+
+    it("should return a client error if trying to join a full lobby", async () => {
+      const { socket: socket1, user: user1 } = await loginAndCreateSocket(app);
+      socket1.connect();
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket1,
+          event: "connect",
+        },
+      ]);
+
+      await createLobby(socket1, "Test Lobby");
+
+      const sessionId1 = await userSessionStore.getUserActiveSession(user1.id);
+      if (!sessionId1) {
+        throw new Error("No session id found");
+      }
+      const userSession1 = await userSessionStore.getUserSession(sessionId1);
+      expect(userSession1).not.toBeNull();
+      expect(userSession1?.lobbyId).not.toBe("none");
+
+      // Join with second user
+      const { socket: socket2 } = await loginAndCreateSocket(app, {
+        username: "testuser2",
+        displayName: "Test User 2",
+      });
+      socket2.connect();
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket2,
+          event: "connect",
+        },
+      ]);
+
+      await joinLobby(socket2, userSession1!.lobbyId!);
+
+      // Try to join with third user
+      const { socket: socket3 } = await loginAndCreateSocket(app, {
+        username: "testuser3",
+        displayName: "Test User 3",
+      });
+      socket3.connect();
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket3,
+          event: "connect",
+        },
+      ]);
+
+      socket3.emit("join_lobby", { lobbyId: userSession1!.lobbyId! });
+
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket3,
+          event: "server_error",
+        },
+      ]);
+    });
+
+    it("should return a client error if trying to join a lobby when already in another lobby", async () => {
+      const { socket: socket1, user: user1 } = await loginAndCreateSocket(app);
+      socket1.connect();
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket1,
+          event: "connect",
+        },
+      ]);
+
+      await createLobby(socket1, "Test Lobby 1");
+
+      const sessionId1 = await userSessionStore.getUserActiveSession(user1.id);
+      if (!sessionId1) {
+        throw new Error("No session id found");
+      }
+      const userSession1 = await userSessionStore.getUserSession(sessionId1);
+      expect(userSession1).not.toBeNull();
+      expect(userSession1?.lobbyId).not.toBe("none");
+
+      // Create second lobby
+      const { socket: socket2 } = await loginAndCreateSocket(app, {
+        username: "testuser2",
+        displayName: "Test User 2",
+      });
+      socket2.connect();
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket2,
+          event: "connect",
+        },
+      ]);
+
+      await createLobby(socket2, "Test Lobby 2");
+
+      const sessionId2 = await userSessionStore.getUserActiveSession(user1.id);
+      if (!sessionId2) {
+        throw new Error("No session id found");
+      }
+      const userSession2 = await userSessionStore.getUserSession(sessionId2);
+      expect(userSession2).not.toBeNull();
+      expect(userSession2?.lobbyId).not.toBe("none");
+
+      // Try to join second lobby while in first lobby
+      socket1.emit("join_lobby", { lobbyId: userSession2!.lobbyId! });
+
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket1,
+          event: "client_error",
+        },
+      ]);
+    });
+
+    it("should join a lobby and add the user to the lobby in redis and emit a user_joined event to the lobby", async () => {
+      const { socket: socket1, user: user1 } = await loginAndCreateSocket(app);
+      socket1.connect();
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket1,
+          event: "connect",
+        },
+      ]);
 
       const { socket: socket2, user: user2 } = await loginAndCreateSocket(app, {
         username: "testuser2",
         displayName: "Test User 2",
       });
       socket2.connect();
-      await waitFor(socket2, "connect");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket2,
+          event: "connect",
+        },
+      ]);
 
       await createLobby(socket1, "Test Lobby");
 
@@ -190,7 +371,34 @@ describe("Lobbies", () => {
       }
       const userSession = await userSessionStore.getUserSession(sessionId);
 
-      await joinLobby(socket2, userSession!.lobbyId!);
+      socket2.emit("join_lobby", {
+        lobbyId: userSession!.lobbyId!,
+      });
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket1,
+          event: "user_joined",
+          message: {
+            userId: user2.id,
+            displayName: user2.displayName,
+          },
+        },
+        {
+          socket: socket2,
+          event: "user_joined",
+          message: {
+            userId: user2.id,
+            displayName: user2.displayName,
+          },
+        },
+        {
+          socket: socket2,
+          event: "lobby_joined",
+          message: {
+            lobbyId: userSession!.lobbyId!,
+          },
+        },
+      ]);
 
       const userSession2 = await userSessionStore.getUserSession(sessionId);
       expect(userSession2).not.toBeNull();
@@ -203,39 +411,40 @@ describe("Lobbies", () => {
         userCount: 1,
       });
     });
-
-    it("should return a client error if the user is already in the lobby", async () => {
-      const { socket: socket1, user: user1 } = await loginAndCreateSocket(app);
-      socket1.connect();
-      await waitFor(socket1, "connect");
-
-      await createLobby(socket1, "Test Lobby");
-
-      socket1.emit("join_lobby", {
-        lobbyId: user1.id,
-      });
-
-      await waitFor(socket1, "client_error");
-    });
   });
 
   describe("set user ready", () => {
     it("should return a client error if the user is not in the lobby", async () => {
       const { socket } = await loginAndCreateSocket(app);
       socket.connect();
-      await waitFor(socket, "connect");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket,
+          event: "connect",
+        },
+      ]);
 
       socket.emit("set_user_ready", {
         isReady: true,
       });
 
-      await waitFor(socket, "client_error");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket,
+          event: "client_error",
+        },
+      ]);
     });
 
     it("should set the owner user as ready in redis", async () => {
       const { socket, user } = await loginAndCreateSocket(app);
       socket.connect();
-      await waitFor(socket, "connect");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket,
+          event: "connect",
+        },
+      ]);
 
       await createLobby(socket, "Test Lobby");
 
@@ -258,10 +467,74 @@ describe("Lobbies", () => {
       });
     });
 
+    it("should return a client error if setting ready status when not in a lobby", async () => {
+      const { socket } = await loginAndCreateSocket(app);
+      socket.connect();
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket,
+          event: "connect",
+        },
+      ]);
+
+      socket.emit("set_user_ready", { isReady: true });
+
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket,
+          event: "client_error",
+        },
+      ]);
+    });
+
+    it("should allow toggling ready status multiple times", async () => {
+      const { socket, user } = await loginAndCreateSocket(app);
+      socket.connect();
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket,
+          event: "connect",
+        },
+      ]);
+
+      await createLobby(socket, "Test Lobby");
+
+      socket.emit("set_user_ready", { isReady: true });
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket,
+          event: "user_ready",
+          message: {
+            lobbyId: expect.any(String),
+            userId: user.id,
+            ready: true,
+          },
+        },
+      ]);
+
+      socket.emit("set_user_ready", { isReady: false });
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket,
+          event: "user_ready",
+          message: {
+            lobbyId: expect.any(String),
+            userId: user.id,
+            ready: false,
+          },
+        },
+      ]);
+    });
+
     it("should set the joined user as ready in redis", async () => {
       const { socket, user } = await loginAndCreateSocket(app);
       socket.connect();
-      await waitFor(socket, "connect");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket,
+          event: "connect",
+        },
+      ]);
 
       await createLobby(socket, "Test Lobby");
 
@@ -278,7 +551,12 @@ describe("Lobbies", () => {
         displayName: "Test User 2",
       });
       socket2.connect();
-      await waitFor(socket2, "connect");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket2,
+          event: "connect",
+        },
+      ]);
 
       await joinLobby(socket2, userSession1!.lobbyId!);
 
@@ -306,23 +584,51 @@ describe("Lobbies", () => {
     it("should return a client error if the user is not in the lobby", async () => {
       const { socket } = await loginAndCreateSocket(app);
       socket.connect();
-      await waitFor(socket, "connect");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket,
+          event: "connect",
+        },
+      ]);
 
       socket.emit("leave_current_lobby");
 
-      await waitFor(socket, "client_error");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket,
+          event: "client_error",
+        },
+      ]);
     });
 
     it("should remove the owner from the lobby in redis and delete the lobby if there are no users left", async () => {
       const { socket, user } = await loginAndCreateSocket(app);
       socket.connect();
-      await waitFor(socket, "connect");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket,
+          event: "connect",
+        },
+      ]);
 
       await createLobby(socket, "Test Lobby");
 
       socket.emit("leave_current_lobby");
 
-      await waitFor(socket, "user_session_lobby_removed");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket,
+          event: "user_left",
+          message: {
+            userId: user.id,
+            displayName: user.displayName,
+          },
+        },
+        {
+          socket,
+          event: "user_session_lobby_removed",
+        },
+      ]);
 
       const sessionId = await userSessionStore.getUserActiveSession(user.id);
       if (!sessionId) {
@@ -339,7 +645,12 @@ describe("Lobbies", () => {
     it("should remove a user from the lobby in redis and not delete the lobby if the owner is not the user", async () => {
       const { socket: socket1, user: user1 } = await loginAndCreateSocket(app);
       socket1.connect();
-      await waitFor(socket1, "connect");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket1,
+          event: "connect",
+        },
+      ]);
 
       await createLobby(socket1, "Test Lobby");
 
@@ -356,13 +667,39 @@ describe("Lobbies", () => {
         displayName: "Test User 2",
       });
       socket2.connect();
-      await waitFor(socket2, "connect");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket2,
+          event: "connect",
+        },
+      ]);
 
       await joinLobby(socket2, userSession1!.lobbyId!);
 
       socket2.emit("leave_current_lobby");
 
-      await waitFor(socket2, "user_session_lobby_removed");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket1,
+          event: "user_left",
+          message: {
+            userId: user2.id,
+            displayName: user2.displayName,
+          },
+        },
+        {
+          socket: socket2,
+          event: "user_left",
+          message: {
+            userId: user2.id,
+            displayName: user2.displayName,
+          },
+        },
+        {
+          socket: socket2,
+          event: "user_session_lobby_removed",
+        },
+      ]);
 
       const sessionId2 = await userSessionStore.getUserActiveSession(user2.id);
       if (!sessionId2) {
@@ -382,28 +719,48 @@ describe("Lobbies", () => {
     });
   });
 
-  describe("start game", () => {
+  describe("start_game", () => {
     it("should return a client error if the user is not in a lobby", async () => {
       const { socket } = await loginAndCreateSocket(app);
       socket.connect();
-      await waitFor(socket, "connect");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket,
+          event: "connect",
+        },
+      ]);
 
       socket.emit("start_game");
 
-      await waitFor(socket, "client_error");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket,
+          event: "client_error",
+        },
+      ]);
     });
 
     it("should return a client error if the user is not the owner of the lobby", async () => {
       const { socket: socket1, user: user1 } = await loginAndCreateSocket(app);
       socket1.connect();
-      await waitFor(socket1, "connect");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket1,
+          event: "connect",
+        },
+      ]);
 
       const { socket: socket2 } = await loginAndCreateSocket(app, {
         username: "testuser2",
         displayName: "Test User 2",
       });
       socket2.connect();
-      await waitFor(socket2, "connect");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket2,
+          event: "connect",
+        },
+      ]);
 
       await createLobby(socket1, "Test Lobby");
 
@@ -417,25 +774,45 @@ describe("Lobbies", () => {
 
       socket2.emit("start_game");
 
-      await waitFor(socket2, "client_error");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket2,
+          event: "client_error",
+        },
+      ]);
     });
 
     it("should return a client error if the lobby has less than 1 users", async () => {
       const { socket: socket1 } = await loginAndCreateSocket(app);
       socket1.connect();
-      await waitFor(socket1, "connect");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket1,
+          event: "connect",
+        },
+      ]);
 
       await createLobby(socket1, "Test Lobby");
 
       socket1.emit("start_game");
 
-      await waitFor(socket1, "client_error");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket1,
+          event: "client_error",
+        },
+      ]);
     });
 
     it("should start a game and add the users to the game in redis", async () => {
       const { socket: socket1, user: user1 } = await loginAndCreateSocket(app);
       socket1.connect();
-      await waitFor(socket1, "connect");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket1,
+          event: "connect",
+        },
+      ]);
 
       await createLobby(socket1, "Test Lobby");
 
@@ -452,7 +829,12 @@ describe("Lobbies", () => {
         displayName: "Test User 2",
       });
       socket2.connect();
-      await waitFor(socket2, "connect");
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket2,
+          event: "connect",
+        },
+      ]);
 
       await joinLobby(socket2, userSession1!.lobbyId!);
 
@@ -460,7 +842,34 @@ describe("Lobbies", () => {
 
       socket1.emit("start_game");
 
-      await waitFor(socket1, "game_started");
+      const expectedGame = {
+        id: expect.any(String),
+        lobbyId: userSession1!.lobbyId!,
+        players: [
+          { id: user1.id, displayName: user1.displayName },
+          { id: user2.id, displayName: user2.displayName },
+        ],
+        gameData: {},
+        startedAt: expect.any(Number),
+        updatedAt: expect.any(Number),
+      };
+
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket1,
+          event: "game_started",
+          message: {
+            game: expectedGame,
+          },
+        },
+        {
+          socket: socket2,
+          event: "game_started",
+          message: {
+            game: expectedGame,
+          },
+        },
+      ]);
 
       const sessionId2 = await userSessionStore.getUserActiveSession(user1.id);
       if (!sessionId2) {
@@ -473,6 +882,72 @@ describe("Lobbies", () => {
       expect(game?.players.length).toBe(2);
       expect(game?.players[0].id).toBe(user1.id);
       expect(game?.players[1].id).toBe(user2.id);
+    });
+
+    it("should return a client error if not all users are ready", async () => {
+      const { socket: socket1, user: user1 } = await loginAndCreateSocket(app);
+      socket1.connect();
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket1,
+          event: "connect",
+        },
+      ]);
+
+      await createLobby(socket1, "Test Lobby");
+
+      const { socket: socket2 } = await loginAndCreateSocket(app, {
+        username: "testuser2",
+        displayName: "Test User 2",
+      });
+      socket2.connect();
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket2,
+          event: "connect",
+        },
+      ]);
+
+      const sessionId1 = await userSessionStore.getUserActiveSession(user1.id);
+      if (!sessionId1) {
+        throw new Error("No session id found");
+      }
+      const userSession1 = await userSessionStore.getUserSession(sessionId1);
+      expect(userSession1).not.toBeNull();
+      expect(userSession1?.lobbyId).not.toBe("none");
+
+      await joinLobby(socket2, userSession1!.lobbyId!);
+
+      socket1.emit("start_game");
+
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket1,
+          event: "client_error",
+        },
+      ]);
+    });
+
+    it("should return a client error if the lobby has less than 2 users", async () => {
+      const { socket: socket1 } = await loginAndCreateSocket(app);
+      socket1.connect();
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket1,
+          event: "connect",
+        },
+      ]);
+
+      await createLobby(socket1, "Test Lobby");
+
+      socket1.emit("start_game");
+
+      await waitForMultipleSocketsAndEvents([
+        {
+          socket: socket1,
+          event: "client_error",
+        },
+      ]);
     });
   });
 });

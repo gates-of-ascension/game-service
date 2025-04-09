@@ -2,19 +2,27 @@ import { LobbyModel } from "../../src/models/redis/LobbyModel";
 import { Socket as ClientSocket } from "socket.io-client";
 import { Socket as ServerSocket } from "socket.io";
 
-export async function waitFor(
-  socket: ServerSocket | ClientSocket,
-  event: string,
-  message?: string,
+type SocketAndEvent = {
+  socket: ServerSocket | ClientSocket;
+  event: string;
+  message?: Record<string, unknown>;
+};
+
+export async function waitForMultipleSocketsAndEvents(
+  socketEvents: SocketAndEvent[],
 ) {
-  return new Promise<void>((resolve) => {
-    socket.once(event, (data) => {
-      if (message) {
-        expect(data).toEqual(message);
-      }
-      resolve();
-    });
-  });
+  return Promise.all(
+    socketEvents.map((socketEvent) => {
+      return new Promise<void>((resolve) => {
+        socketEvent.socket.once(socketEvent.event, (data) => {
+          if (socketEvent.message) {
+            expect(data).toEqual(socketEvent.message);
+          }
+          resolve();
+        });
+      });
+    }),
+  );
 }
 
 export async function createLobby(socket: ClientSocket, lobbyName: string) {
@@ -22,7 +30,12 @@ export async function createLobby(socket: ClientSocket, lobbyName: string) {
     name: lobbyName,
   });
 
-  return waitFor(socket, "lobby_created");
+  return waitForMultipleSocketsAndEvents([
+    {
+      socket,
+      event: "lobby_created",
+    },
+  ]);
 }
 
 export async function joinLobby(socket: ClientSocket, lobbyId: string) {
@@ -30,7 +43,12 @@ export async function joinLobby(socket: ClientSocket, lobbyId: string) {
     lobbyId,
   });
 
-  return waitFor(socket, "lobby_joined");
+  return waitForMultipleSocketsAndEvents([
+    {
+      socket,
+      event: "lobby_joined",
+    },
+  ]);
 }
 
 export async function setUserReady(socket: ClientSocket) {
@@ -38,7 +56,12 @@ export async function setUserReady(socket: ClientSocket) {
     isReady: true,
   });
 
-  return waitFor(socket, "user_ready");
+  return waitForMultipleSocketsAndEvents([
+    {
+      socket,
+      event: "user_ready",
+    },
+  ]);
 }
 
 export async function getLobbyState(lobbyModel: LobbyModel, lobbyId: string) {

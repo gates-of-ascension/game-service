@@ -94,7 +94,7 @@ export function setupSocketIO(params: {
         socket.join(session.lobbyId);
       }
 
-      if (session.gameId) {
+      if (session.gameId !== "none") {
         socket.join(session.gameId);
       }
 

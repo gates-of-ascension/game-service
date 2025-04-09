@@ -12,7 +12,6 @@ export type Game = {
   id: string;
   lobbyId: string;
   players: GamePlayer[];
-  state: "starting" | "in_progress" | "completed";
   gameData: Record<string, unknown>;
   startedAt: number;
   updatedAt: number;

@@ -7,11 +7,15 @@ import {
   joinLobbySchema,
   setUserReadySchema,
 } from "../../validation/websockets/lobbies";
-import { LobbyChannelSocket, SocketError } from "../types";
+import {
+  LobbyChannelSocket,
+  SocketError,
+  LobbyChannelServerToClientEvents,
+} from "../types";
 import LobbyController from "../../controllers/lobbyController";
 import { Lobby } from "../../models/redis/LobbyModel";
 
-class LobbyChannel extends BaseChannel {
+class LobbyChannel extends BaseChannel<LobbyChannelServerToClientEvents> {
   private lobbyController: LobbyController;
   private redisStore: RedisStore;
   constructor(
@@ -108,7 +112,7 @@ class LobbyChannel extends BaseChannel {
     const session = socket.request.session;
     try {
       await this.lobbyController.setUserReady(session, ready);
-      socket.emit("user_ready", {
+      this.emitToRoom(session.lobbyId, "user_ready", {
         lobbyId: session.lobbyId,
         userId: session.user.id,
         ready,
@@ -124,8 +128,14 @@ class LobbyChannel extends BaseChannel {
     try {
       sessionResult =
         await this.lobbyController.removeUserSessionLobby(session);
-      session.lobbyId = sessionResult.lobbyId;
+      const lobbyId = sessionResult.lobbyId;
+      session.lobbyId = sessionResult.session.lobbyId;
       session.save();
+      this.emitToRoom(lobbyId, "user_left", {
+        userId: session.user.id,
+        displayName: session.user.displayName,
+      });
+      this.leaveRoom(socket, lobbyId);
       socket.emit("user_session_lobby_removed");
     } catch (error) {
       this.handleError(socket, error as Error | SocketError);
@@ -138,6 +148,10 @@ class LobbyChannel extends BaseChannel {
     try {
       await this.lobbyController.joinLobby(session, lobbyId);
       this.joinRoom(socket, lobbyId);
+      this.emitToRoom(lobbyId, "user_joined", {
+        userId: session.user.id,
+        displayName: session.user.displayName,
+      });
       socket.emit("lobby_joined", { lobbyId });
       session.save();
       this.logger.debug(`User (${socket.id}) joined lobby (${lobbyId})`);
@@ -153,7 +167,7 @@ class LobbyChannel extends BaseChannel {
       const lobbyId = session.lobbyId;
       await this.lobbyController.deleteLobby(session, lobbyId);
       session.lobbyId = "none";
-      socket.emit("lobby_deleted", { lobbyId });
+      this.emitToRoom(lobbyId, "lobby_deleted", { lobbyId });
       this.logger.debug(
         `User (${session.user.username}) deleted lobby (${lobbyId})`,
       );
@@ -170,9 +184,9 @@ class LobbyChannel extends BaseChannel {
       this.logger.debug(
         `User (${session.user.id}) started game (${session.lobbyId})`,
       );
-      const { session: updatedSession } =
+      const { session: updatedSession, game } =
         await this.lobbyController.startGame(session);
-      this.emitToRoom(session.lobbyId, "game_started", {});
+      this.emitToRoom(session.lobbyId, "game_started", { game });
       updatedSession.save();
     } catch (error) {
       this.handleError(socket, error as Error | SocketError);

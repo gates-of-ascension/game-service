@@ -32,7 +32,7 @@ export type CreateLobbyOptions = {
   settings: Record<string, string>;
 };
 
-const DEFAULT_MAX_PLAYERS = 2;
+const DEFAULT_MAX_USERS = 1;
 
 export class LobbyModel extends BaseRedisModel<Lobby> {
   private readonly defaultTTL: number;
@@ -119,7 +119,7 @@ export class LobbyModel extends BaseRedisModel<Lobby> {
       throw new Error(`Lobby with id (${lobbyId}) not found`);
     }
 
-    if (lobby.users.length >= DEFAULT_MAX_PLAYERS) {
+    if (lobby.users.length >= DEFAULT_MAX_USERS) {
       throw new Error(`Lobby with id (${lobbyId}) is already full!`);
     }
 
