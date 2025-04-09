@@ -1,4 +1,4 @@
-import express from "express";
+import express, { RequestHandler } from "express";
 import BaseLogger from "./utils/logger";
 import usersRouter from "./routes/users";
 import "express-async-errors";
@@ -7,13 +7,12 @@ import { apiErrorMiddleware } from "./middleware/apiError";
 import cardsRouter from "./routes/cards";
 import userDecksRouter from "./routes/userDecks";
 import lobbiesRouter from "./routes/lobbies";
-import session, { SessionOptions } from "express-session";
 import cors from "cors";
 
 export default async function createApp(
   logger: BaseLogger,
   controllers: Controllers,
-  sessionOptions: SessionOptions,
+  sessionMiddleware: RequestHandler,
 ) {
   const app = express();
   const {
@@ -26,12 +25,12 @@ export default async function createApp(
   app.use(express.urlencoded({ extended: false }));
   app.use(
     cors({
-      origin: process.env.FRONTEND_URL || "http://localhost:5173",
+      origin: process.env.FRONTEND_URL,
       credentials: true,
     }),
   );
 
-  app.use(session(sessionOptions));
+  app.use(sessionMiddleware);
 
   // Register routes after session middleware
   app.use("/", usersRouter(usersController));

@@ -46,7 +46,7 @@ export default async function createServer() {
   });
   const sessionOptions = getSessionSetupOptions(userSessionStore);
   const sessionMiddleware = session(sessionOptions);
-  const app = await createApp(logger, controllers, sessionOptions);
+  const app = await createApp(logger, controllers, sessionMiddleware);
   const server = http.createServer(app);
 
   setupSocketIO({

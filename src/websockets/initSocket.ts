@@ -30,7 +30,7 @@ export function setupSocketIO(params: {
 
   const ioOptions: Partial<ServerOptions> = {};
   ioOptions.cors = {
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: process.env.FRONTEND_URL,
     credentials: true,
   };
   const io = new Server(httpServer, ioOptions);

@@ -32,4 +32,7 @@ export function verifyEnvVars() {
   if (!process.env.SESSION_SECRET) {
     throw new Error("SESSION_SECRET is not set");
   }
+  if (!process.env.FRONTEND_URL) {
+    throw new Error("FRONTEND_URL is not set");
+  }
 }

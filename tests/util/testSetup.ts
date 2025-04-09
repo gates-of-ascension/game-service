@@ -11,6 +11,7 @@ import { getSessionSetupOptions } from "../../src/utils/getSessionSetupOptions";
 import { UserSessionStore } from "../../src/models/redis/UserSessionStore";
 import { setupSocketIO } from "../../src/websockets/initSocket";
 import http from "http";
+import session from "express-session";
 
 export default async function setupTestEnvironment() {
   const logger = new BaseLogger(path.join(__dirname, "app.log"));
@@ -47,7 +48,8 @@ export default async function setupTestEnvironment() {
     userSessionStore,
   });
   const sessionOptions = getSessionSetupOptions(userSessionStore);
-  const app = await createApp(logger, controllers, sessionOptions);
+  const sessionMiddleware = session(sessionOptions);
+  const app = await createApp(logger, controllers, sessionMiddleware);
 
   const server = http.createServer(app);
 
@@ -55,7 +57,7 @@ export default async function setupTestEnvironment() {
     httpServer: server,
     logger,
     redisClient,
-    sessionOptions,
+    sessionMiddleware,
     lobbyController: controllers.lobbyController,
     gameController: controllers.gameController,
     userSessionStore,
