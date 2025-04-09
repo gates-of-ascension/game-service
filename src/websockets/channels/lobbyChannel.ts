@@ -1,7 +1,6 @@
-import { Server, Socket } from "socket.io";
+import { Server } from "socket.io";
 import BaseLogger from "../../utils/logger";
 import BaseChannel from "./baseChannel";
-import { RedisStore } from "connect-redis";
 import {
   createLobbySchema,
   joinLobbySchema,
@@ -14,19 +13,19 @@ import {
 } from "../types";
 import LobbyController from "../../controllers/lobbyController";
 import { Lobby } from "../../models/redis/LobbyModel";
-
+import { UserSessionStore } from "../../models/redis/UserSessionStore";
 class LobbyChannel extends BaseChannel<LobbyChannelServerToClientEvents> {
   private lobbyController: LobbyController;
-  private redisStore: RedisStore;
+  private userSessionStore: UserSessionStore;
   constructor(
     logger: BaseLogger,
     io: Server,
-    redisStore: RedisStore,
     lobbyController: LobbyController,
+    userSessionStore: UserSessionStore,
   ) {
     super(logger, io);
     this.lobbyController = lobbyController;
-    this.redisStore = redisStore;
+    this.userSessionStore = userSessionStore;
   }
 
   async registerEvents(socket: LobbyChannelSocket) {
@@ -77,16 +76,7 @@ class LobbyChannel extends BaseChannel<LobbyChannelServerToClientEvents> {
     });
   }
 
-  private handleError(socket: Socket, error: Error | SocketError) {
-    this.logSocketError(socket, error.name, error.message);
-    if (error instanceof SocketError) {
-      socket.emit(error.name, error.message);
-    } else {
-      socket.emit("server_error", `Error creating lobby: (${error})`);
-    }
-  }
-
-  private async handleCreateLobby(socket: Socket, lobby: Lobby) {
+  private async handleCreateLobby(socket: LobbyChannelSocket, lobby: Lobby) {
     try {
       const session = socket.request.session;
       const createdLobbyResult = await this.lobbyController.createLobby(
@@ -102,7 +92,7 @@ class LobbyChannel extends BaseChannel<LobbyChannelServerToClientEvents> {
         `User (${socket.id}) created lobby (${createdLobby.id})`,
       );
       updatedSession.save();
-      socket.emit("lobby_created", createdLobby);
+      socket.emit("lobby_created", { lobby: createdLobby });
     } catch (error) {
       this.handleError(socket, error as Error | SocketError);
     }
@@ -122,11 +112,10 @@ class LobbyChannel extends BaseChannel<LobbyChannelServerToClientEvents> {
     }
   }
 
-  private async removeUserSessionLobby(socket: Socket) {
+  private async removeUserSessionLobby(socket: LobbyChannelSocket) {
     const session = socket.request.session;
-    let sessionResult;
     try {
-      sessionResult =
+      const sessionResult =
         await this.lobbyController.removeUserSessionLobby(session);
       const lobbyId = sessionResult.lobbyId;
       session.lobbyId = sessionResult.session.lobbyId;
@@ -184,10 +173,15 @@ class LobbyChannel extends BaseChannel<LobbyChannelServerToClientEvents> {
       this.logger.debug(
         `User (${session.user.id}) started game (${session.lobbyId})`,
       );
-      const { session: updatedSession, game } =
-        await this.lobbyController.startGame(session);
+      const {
+        session: updatedSession,
+        game,
+        secondUserInLobby,
+      } = await this.lobbyController.startGame(session);
       this.emitToRoom(session.lobbyId, "game_started", { game });
+      this.emitToRoom(secondUserInLobby, "game_started", { game });
       updatedSession.save();
+      await this.userSessionStore.setGameIdForUser(secondUserInLobby, game.id);
     } catch (error) {
       this.handleError(socket, error as Error | SocketError);
     }

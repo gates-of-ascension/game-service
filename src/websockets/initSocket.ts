@@ -69,10 +69,15 @@ export function setupSocketIO(params: {
   const lobbyChannel = new LobbyChannel(
     logger,
     io,
+    lobbyController,
     userSessionStore,
+  );
+  const gameChannel = new GameChannel(
+    logger,
+    io,
+    gameController,
     lobbyController,
   );
-  const gameChannel = new GameChannel(logger, io, gameController);
 
   io.on("connection", async (socket) => {
     const session = socket.request.session;

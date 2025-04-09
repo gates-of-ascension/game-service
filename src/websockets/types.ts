@@ -43,6 +43,22 @@ export type LobbyChannelSocket = Socket<
   LobbyChannelServerToClientEvents
 >;
 
+export type GameChannelServerToClientEvents = {
+  player_left: (message: { gameId: string; playerId: string }) => void;
+  user_left: (message: { userId: string; displayName: string }) => void;
+  user_session_game_removed: () => void;
+  user_session_lobby_removed: () => void;
+};
+
+export type GameChannelClientToServerEvents = {
+  leave_current_game: () => void;
+};
+
+export type GameChannelSocket = Socket<
+  GameChannelClientToServerEvents,
+  GameChannelServerToClientEvents
+>;
+
 export class SocketError extends Error {
   constructor(name: SocketErrorName, message: string) {
     super(message);

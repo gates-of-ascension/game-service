@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Server, Socket } from "socket.io";
 import BaseLogger from "../../utils/logger";
+import { SocketError } from "../types";
 
 export default abstract class BaseChannel<
   Events extends Record<string, (...args: any[]) => void>,
@@ -43,5 +44,10 @@ export default abstract class BaseChannel<
   ) {
     this.logger.error(`Socket Error: (${errorName}) - (${errorMessage})`);
     socket.emit(errorName, errorMessage);
+  }
+
+  protected handleError(socket: Socket, error: Error | SocketError) {
+    this.logSocketError(socket, error.name, error.message);
+    socket.emit(error.name, error.message);
   }
 }

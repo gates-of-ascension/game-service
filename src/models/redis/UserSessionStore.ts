@@ -152,6 +152,22 @@ export class UserSessionStore extends RedisStore {
     return lobbyId;
   }
 
+  async setGameIdForUser(userId: string, gameId: string): Promise<void> {
+    const sessionId = await this.getUserActiveSession(userId);
+    if (sessionId) {
+      const userSession = await this.getUserSession(sessionId);
+      if (userSession) {
+        await this.redisClient.set(
+          `session:${sessionId}`,
+          JSON.stringify({
+            ...userSession,
+            gameId,
+          }),
+        );
+      }
+    }
+  }
+
   async forceLogout(userId: string): Promise<void> {
     try {
       const sessionId = await this.getUserActiveSession(userId);

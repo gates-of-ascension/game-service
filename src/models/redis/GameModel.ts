@@ -71,7 +71,7 @@ export class GameModel extends BaseRedisModel<Game> {
     game.players = game.players.filter((p) => p.id !== playerId);
 
     if (game.players.length === 0) {
-      this.logger.warn(`Game with id (${gameId}) is empty, deleting...`);
+      this.logger.warn(`Game with id (${gameId}) is now empty, deleting...`);
       await this.delete(gameId);
     } else {
       await this.update(gameId, game);

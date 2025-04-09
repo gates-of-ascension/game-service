@@ -217,6 +217,6 @@ export default class LobbyController {
 
     session.gameId = gameId;
 
-    return { session, game: gameData };
+    return { session, game: gameData, secondUserInLobby: lobby.users[0].id };
   }
 }
