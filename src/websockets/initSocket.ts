@@ -9,10 +9,6 @@ import GameController from "../controllers/gameController";
 import { UserSessionStore } from "../models/redis/UserSessionStore";
 import { RequestHandler } from "express";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const wrap = (middleware: any) => (socket: any, next: any) =>
-  middleware(socket.request, {}, next);
-
 export function setupSocketIO(params: {
   httpServer: http.Server;
   logger: BaseLogger;
@@ -38,7 +34,7 @@ export function setupSocketIO(params: {
     exposedHeaders: ["Set-Cookie"],
   };
   const io = new Server(httpServer, ioOptions);
-  io.use(wrap(sessionMiddleware));
+  io.engine.use(sessionMiddleware);
   io.use(async (socket, next) => {
     const session = socket.request.session;
     if (!session.user) {
