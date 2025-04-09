@@ -4,10 +4,11 @@ import GameChannel from "./channels/gameChannel";
 import LobbyChannel from "./channels/lobbyChannel";
 import BaseLogger from "../utils/logger";
 import { RedisClient } from "../initDatastores";
-import session, { SessionOptions } from "express-session";
 import LobbyController from "../controllers/lobbyController";
 import GameController from "../controllers/gameController";
 import { UserSessionStore } from "../models/redis/UserSessionStore";
+import { RequestHandler } from "express";
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const wrap = (middleware: any) => (socket: any, next: any) =>
   middleware(socket.request, {}, next);
@@ -19,7 +20,7 @@ export function setupSocketIO(params: {
   lobbyController: LobbyController;
   gameController: GameController;
   userSessionStore: UserSessionStore;
-  sessionOptions: SessionOptions;
+  sessionMiddleware: RequestHandler;
 }) {
   const {
     httpServer,
@@ -27,30 +28,23 @@ export function setupSocketIO(params: {
     lobbyController,
     gameController,
     userSessionStore,
-    sessionOptions,
+    sessionMiddleware,
   } = params;
 
   const ioOptions: Partial<ServerOptions> = {};
-  if (process.env.ENVIRONMENT === "production") {
-    ioOptions.cors = {
-      origin: process.env.FRONTEND_URL || "http://localhost:3000",
-      credentials: true,
-    };
-  } else {
-    ioOptions.cors = {
-      origin: "*",
-      credentials: false,
-    };
-  }
+  ioOptions.cors = {
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    credentials: true,
+    exposedHeaders: ["Set-Cookie"],
+  };
   const io = new Server(httpServer, ioOptions);
-  io.use(wrap(session(sessionOptions)));
-  io.use((socket, next) => {
+  io.use(wrap(sessionMiddleware));
+  io.use(async (socket, next) => {
     const session = socket.request.session;
     if (!session.user) {
       next(new Error("User not authenticated"));
-    } else {
-      next();
     }
+    next();
   });
 
   io.use(async (socket, next) => {

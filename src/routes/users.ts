@@ -61,14 +61,20 @@ export default (usersController: UsersController) => {
         if (err) {
           throw new ApiError(500, "Error saving session");
         }
-        res.status(200).json({
-          message: "Logged in successfully",
-          user: {
-            id: response.user.id,
-            username: response.user.username,
-            displayName: response.user.displayName,
-          },
-        });
+        res
+          .setHeader(
+            "Access-Control-Expose-Headers",
+            "Content-Type, Set-Cookie",
+          )
+          .status(200)
+          .json({
+            message: "Logged in successfully",
+            user: {
+              id: response.user.id,
+              username: response.user.username,
+              displayName: response.user.displayName,
+            },
+          });
       });
     },
   );

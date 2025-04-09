@@ -8,6 +8,7 @@ import { setupSocketIO } from "./websockets/initSocket";
 import { verifyEnvVars } from "./utils/verifyEnvVars";
 import { getSessionSetupOptions } from "./utils/getSessionSetupOptions";
 import { UserSessionStore } from "./models/redis/UserSessionStore";
+import session from "express-session";
 
 export default async function createServer() {
   verifyEnvVars();
@@ -35,9 +36,6 @@ export default async function createServer() {
     logger,
     lobbyModel,
   });
-  // if (process.env.ENVIRONMENT === "local") {
-  //   await redisClient.flushAll();
-  // }
   const controllers = await createControllers({
     logger,
     sequelize,
@@ -47,6 +45,7 @@ export default async function createServer() {
     userSessionStore,
   });
   const sessionOptions = getSessionSetupOptions(userSessionStore);
+  const sessionMiddleware = session(sessionOptions);
   const app = await createApp(logger, controllers, sessionOptions);
   const server = http.createServer(app);
 
@@ -54,7 +53,7 @@ export default async function createServer() {
     httpServer: server,
     logger,
     redisClient,
-    sessionOptions,
+    sessionMiddleware,
     lobbyController: controllers.lobbyController,
     gameController: controllers.gameController,
     userSessionStore,
