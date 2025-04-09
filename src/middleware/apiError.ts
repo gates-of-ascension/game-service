@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import BaseLogger from "../utils/logger";
+import { Socket } from "socket.io";
 
 export class ApiError extends Error {
   public status: number;
@@ -7,6 +8,15 @@ export class ApiError extends Error {
   constructor(statusCode: number, message: string) {
     super(message);
     this.status = statusCode || 500;
+  }
+}
+
+export class SocketError extends Error {
+  public type: string;
+
+  constructor(type: string, message: string) {
+    super(message);
+    this.type = type;
   }
 }
 
@@ -31,5 +41,31 @@ export function apiErrorMiddleware(logger: BaseLogger) {
     } else {
       res.status(500).json({ error: `Unexpected error: ${message}` });
     }
+  };
+}
+
+export function socketErrorMiddleware(logger: BaseLogger) {
+  return function (socket: Socket, next: (err?: Error) => void) {
+    socket.on("error", (error: Error) => {
+      const errorMessage = error.message;
+      logger.error(`Socket error for socket ${socket.id}: ${errorMessage}`);
+
+      if (error instanceof SocketError) {
+        socket.emit("error", {
+          type: error.type,
+          message: error.message,
+        });
+      } else {
+        socket.emit("error", {
+          type: "server_error",
+          message: "An unexpected error occurred",
+        });
+      }
+
+      // Don't crash the server, just disconnect the problematic socket
+      socket.disconnect();
+    });
+
+    next();
   };
 }

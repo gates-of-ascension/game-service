@@ -32,7 +32,7 @@ export default async function createServer() {
   });
   const userSessionStore = new UserSessionStore({
     client: redisClient,
-    prefix: "session",
+    prefix: "session:",
     logger,
     lobbyModel,
   });

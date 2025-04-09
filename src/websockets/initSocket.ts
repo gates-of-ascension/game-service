@@ -8,6 +8,7 @@ import LobbyController from "../controllers/lobbyController";
 import GameController from "../controllers/gameController";
 import { UserSessionStore } from "../models/redis/UserSessionStore";
 import { RequestHandler } from "express";
+import { socketErrorMiddleware } from "../middleware/apiError";
 
 export function setupSocketIO(params: {
   httpServer: http.Server;
@@ -31,20 +32,20 @@ export function setupSocketIO(params: {
   ioOptions.cors = {
     origin: process.env.FRONTEND_URL || "http://localhost:5173",
     credentials: true,
-    exposedHeaders: ["Set-Cookie"],
   };
   const io = new Server(httpServer, ioOptions);
+
   io.engine.use(sessionMiddleware);
-  io.use(async (socket, next) => {
-    const session = socket.request.session;
-    if (!session.user) {
-      next(new Error("User not authenticated"));
-    }
-    next();
-  });
+
+  io.use(socketErrorMiddleware(logger));
 
   io.use(async (socket, next) => {
     const session = socket.request.session;
+    if (!session?.user) {
+      next(new Error("User not authenticated"));
+      return;
+    }
+
     let userActiveSocket;
     try {
       userActiveSocket = await userSessionStore.getUserActiveSocket(
@@ -52,12 +53,15 @@ export function setupSocketIO(params: {
       );
     } catch (error) {
       logger.error(
-        `Error getting user socket (${session.user.username}): (${error})`,
+        `Error getting user socket for user ID ${session.user.id}: ${error}`,
       );
       next(new Error("User could not be authenticated due to error"));
+      return;
     }
+
     if (userActiveSocket) {
       next(new Error("User already connected"));
+      return;
     }
     next();
   });
@@ -72,34 +76,46 @@ export function setupSocketIO(params: {
 
   io.on("connection", async (socket) => {
     const session = socket.request.session;
+    if (!session?.user) {
+      socket.disconnect();
+      return;
+    }
+
     const { id: userId, username } = session.user;
 
-    logger.debug(
-      `User (${username}) connected to websocket with session: (${JSON.stringify(
-        session,
-      )})`,
-    );
-    if (session.lobbyId !== "none") {
-      socket.join(session.lobbyId);
-    }
-
-    socket.join(userId);
-
-    lobbyChannel.registerEvents(socket);
-    gameChannel.registerEvents(socket);
-
     try {
-      await userSessionStore.setUserActiveSocket(userId, socket.id);
-    } catch (error) {
-      logger.error(`Error setting user socket (${username}): (${error})`);
-      socket.emit("connect_error", {
-        message: "Error setting user socket in redis",
-      });
-    }
+      logger.debug(
+        `User (${username}) connected to websocket with session: (${JSON.stringify(
+          session,
+        )})`,
+      );
 
-    logger.info(`User socket connected: (${socket.id}) (User ID: ${userId})`);
+      if (session.lobbyId !== "none") {
+        socket.join(session.lobbyId);
+      }
+
+      if (session.gameId) {
+        socket.join(session.gameId);
+      }
+
+      socket.join(userId);
+
+      lobbyChannel.registerEvents(socket);
+      gameChannel.registerEvents(socket);
+
+      await userSessionStore.setUserActiveSocket(userId, socket.id);
+      logger.info(`User socket connected: (${socket.id}) (User ID: ${userId})`);
+    } catch (error) {
+      logger.error(`Error during socket connection setup: ${error}`);
+      socket.emit("connect_error", {
+        message: "Error setting up socket connection",
+      });
+      socket.disconnect();
+    }
 
     socket.on("disconnect", async () => {
+      if (!session?.user) return;
+
       logger.info(
         `User socket disconnected: (${socket.id}) User ID: (${userId})`,
       );
