@@ -14,9 +14,11 @@ import {
 import LobbyController from "../../controllers/lobbyController";
 import { Lobby } from "../../models/redis/LobbyModel";
 import { UserSessionStore } from "../../models/redis/UserSessionStore";
+
 class LobbyChannel extends BaseChannel<LobbyChannelServerToClientEvents> {
   private lobbyController: LobbyController;
   private userSessionStore: UserSessionStore;
+
   constructor(
     logger: BaseLogger,
     io: Server,
@@ -75,6 +77,16 @@ class LobbyChannel extends BaseChannel<LobbyChannelServerToClientEvents> {
       this.handleStartGame(socket);
     });
   }
+
+  // async handleCreateLobbyStream(socket: LobbyChannelSocket, lobby: Lobby) {
+  //   const session = socket.request.session;
+  //   try {
+  //     await this.lobbyController.createLobbyStream(session, lobby);
+  //     session.save();
+  //   } catch (error) {
+  //     this.handleError(socket, error as Error | SocketError);
+  //   }
+  // }
 
   private async handleCreateLobby(socket: LobbyChannelSocket, lobby: Lobby) {
     try {

@@ -9,14 +9,18 @@ import GameController from "../controllers/gameController";
 import { UserSessionStore } from "../models/redis/UserSessionStore";
 import { RequestHandler } from "express";
 import { socketErrorMiddleware } from "../middleware/apiError";
+// import { StreamConsumer } from "../streams/streamConsumer";
+// import { SocketRoomManager } from "./socketRoomManager";
+import { StreamPublisher } from "../streams/streamPublisher";
 
-export function setupSocketIO(params: {
+export async function setupSocketIO(params: {
   httpServer: http.Server;
   logger: BaseLogger;
   redisClient: RedisClient;
   lobbyController: LobbyController;
   gameController: GameController;
   userSessionStore: UserSessionStore;
+  streamPublisher: StreamPublisher;
   sessionMiddleware: RequestHandler;
 }) {
   const {
@@ -132,6 +136,22 @@ export function setupSocketIO(params: {
       }
     });
   });
+
+  // const socketRoomManager = new SocketRoomManager({
+  //   logger,
+  //   io,
+  //   userSessionStore,
+  // });
+
+  // const streamConsumer = new StreamConsumer({
+  //   logger,
+  //   redisClient,
+  //   consumerName: "websocket-servers",
+  //   io,
+  //   socketRoomManager,
+  // });
+
+  // await streamConsumer.start();
 
   return {
     io,

@@ -30,6 +30,7 @@ export type LobbyChannelServerToClientEvents = {
 
 export type LobbyChannelClientToServerEvents = {
   create_lobby: (message: Lobby) => void;
+  create_lobby_stream: (message: Lobby) => void;
   leave_current_lobby: () => void;
   join_lobby: (message: { lobbyId: string }) => void;
   update_lobby: (message: Lobby) => void;
