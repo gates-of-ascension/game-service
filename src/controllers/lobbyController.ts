@@ -5,12 +5,14 @@ import BaseLogger from "../utils/logger";
 import { SocketError } from "../websockets/types";
 import { GameModel } from "../models/redis/GameModel";
 import { v4 as uuidv4 } from "uuid";
+import { StreamPublisher } from "../streams/streamPublisher";
 
 export default class LobbyController {
   constructor(
     private readonly logger: BaseLogger,
     private readonly lobbyModel: LobbyModel,
     private readonly gameModel: GameModel,
+    private readonly streamPublisher: StreamPublisher,
   ) {}
 
   async getActiveLobbies() {
@@ -25,6 +27,13 @@ export default class LobbyController {
     }
     return lobbies;
   }
+
+  // async createLobbyStream(session: Session, lobby: Lobby) {
+  //   this.streamPublisher.publish("user:events", {
+  //     type: "create_lobby",
+  //     data: JSON.stringify(lobby),
+  //   });
+  // }
 
   async createLobby(session: Session, lobby: Lobby) {
     if (session.lobbyId !== "none") {
