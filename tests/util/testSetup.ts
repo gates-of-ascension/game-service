@@ -12,7 +12,6 @@ import { UserSessionStore } from "../../src/models/redis/UserSessionStore";
 import { setupSocketIO } from "../../src/websockets/initSocket";
 import http from "http";
 import session from "express-session";
-import { StreamPublisher } from "../../src/streams/streamPublisher";
 
 export default async function setupTestEnvironment() {
   const logger = new BaseLogger(path.join(__dirname, "app.log"));
@@ -40,10 +39,6 @@ export default async function setupTestEnvironment() {
     logger,
     lobbyModel,
   });
-  const streamPublisher = new StreamPublisher({
-    logger,
-    redisClient,
-  });
   const controllers = await createControllers({
     logger,
     sequelize,
@@ -51,7 +46,6 @@ export default async function setupTestEnvironment() {
     lobbyModel,
     gameModel,
     userSessionStore,
-    streamPublisher,
   });
   const sessionOptions = getSessionSetupOptions(userSessionStore);
   const sessionMiddleware = session(sessionOptions);
@@ -67,7 +61,6 @@ export default async function setupTestEnvironment() {
     lobbyController: controllers.lobbyController,
     gameController: controllers.gameController,
     userSessionStore,
-    streamPublisher,
   });
 
   return {
@@ -79,6 +72,5 @@ export default async function setupTestEnvironment() {
     sequelize,
     lobbyModel,
     gameModel,
-    streamPublisher,
   };
 }

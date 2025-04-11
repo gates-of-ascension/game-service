@@ -32,31 +32,32 @@ class GameChannel extends BaseChannel<GameChannelServerToClientEvents> {
   private async handleLeaveCurrentGame(socket: GameChannelSocket) {
     const session = socket.request.session;
     try {
-      this.logger.debug(
-        `User (${session.user.username}) is leaving current game (${session.gameId})`,
-      );
-      const gameLeaveResult =
-        await this.gameController.leaveCurrentGame(session);
-      session.gameId = gameLeaveResult.gameId;
-      session.save();
-      this.emitToRoom(gameLeaveResult.gameId, "player_left", {
-        gameId: gameLeaveResult.gameId,
-        playerId: session.user.id,
-      });
-      socket.emit("user_session_game_removed");
+      // this.logger.debug(
+      //   `User (${session.user.username}) is leaving current game (${session.gameId})`,
+      // );
+      // const gameLeaveResult =
+      //   await this.gameController.leaveCurrentGame(session);
+      // session.gameId = gameLeaveResult.gameId;
+      // session.save();
+      // this.emitToRoom(gameLeaveResult.gameId, "player_left", {
+      //   gameId: gameLeaveResult.gameId,
+      //   playerId: session.user.id,
+      // });
+      // socket.emit("user_session_game_removed");
 
-      this.logger.debug(
-        `User (${session.user.username}) is now leaving the lobby (${session.lobbyId})`,
-      );
-      const lobbyLeaveResult =
-        await this.lobbyController.removeUserSessionLobby(session);
-      session.lobbyId = lobbyLeaveResult.lobbyId;
+      // this.logger.debug(
+      //   `User (${session.user.username}) is now leaving the lobby (${session.lobbyId})`,
+      // );
+      // const lobbyLeaveResult =
+      //   await this.lobbyController.removeUserSessionLobby(session);
+      // session.lobbyId = lobbyLeaveResult.lobbyId;
+      // session.save();
+      // this.emitToRoom(lobbyLeaveResult.lobbyId, "user_left", {
+      //   userId: session.user.id,
+      //   displayName: session.user.displayName,
+      // });
       session.save();
-      this.emitToRoom(lobbyLeaveResult.lobbyId, "user_left", {
-        userId: session.user.id,
-        displayName: session.user.displayName,
-      });
-      socket.emit("user_session_lobby_removed");
+      // socket.emit("user_session_lobby_removed");
     } catch (error) {
       this.handleError(socket, error as Error | SocketError);
     }

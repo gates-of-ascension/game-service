@@ -48,6 +48,5 @@ export default abstract class BaseChannel<
 
   protected handleError(socket: Socket, error: Error | SocketError) {
     this.logSocketError(socket, error.name, error.message);
-    socket.emit(error.name, error.message);
   }
 }

@@ -9,7 +9,6 @@ import { verifyEnvVars } from "./utils/verifyEnvVars";
 import { getSessionSetupOptions } from "./utils/getSessionSetupOptions";
 import { UserSessionStore } from "./models/redis/UserSessionStore";
 import session from "express-session";
-import { StreamPublisher } from "./streams/streamPublisher";
 
 export default async function createServer() {
   verifyEnvVars();
@@ -37,10 +36,6 @@ export default async function createServer() {
     logger,
     lobbyModel,
   });
-  const streamPublisher = new StreamPublisher({
-    logger,
-    redisClient,
-  });
   const controllers = await createControllers({
     logger,
     sequelize,
@@ -48,7 +43,6 @@ export default async function createServer() {
     lobbyModel,
     gameModel,
     userSessionStore,
-    streamPublisher,
   });
   const sessionOptions = getSessionSetupOptions(userSessionStore);
   const sessionMiddleware = session(sessionOptions);
@@ -63,7 +57,6 @@ export default async function createServer() {
     lobbyController: controllers.lobbyController,
     gameController: controllers.gameController,
     userSessionStore,
-    streamPublisher,
   });
 
   return server;

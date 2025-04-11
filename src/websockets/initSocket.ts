@@ -9,9 +9,6 @@ import GameController from "../controllers/gameController";
 import { UserSessionStore } from "../models/redis/UserSessionStore";
 import { RequestHandler } from "express";
 import { socketErrorMiddleware } from "../middleware/apiError";
-// import { StreamConsumer } from "../streams/streamConsumer";
-// import { SocketRoomManager } from "./socketRoomManager";
-import { StreamPublisher } from "../streams/streamPublisher";
 
 export async function setupSocketIO(params: {
   httpServer: http.Server;
@@ -20,7 +17,6 @@ export async function setupSocketIO(params: {
   lobbyController: LobbyController;
   gameController: GameController;
   userSessionStore: UserSessionStore;
-  streamPublisher: StreamPublisher;
   sessionMiddleware: RequestHandler;
 }) {
   const {
@@ -42,34 +38,6 @@ export async function setupSocketIO(params: {
   io.engine.use(sessionMiddleware);
 
   io.use(socketErrorMiddleware(logger));
-
-  io.use(async (socket, next) => {
-    const session = socket.request.session;
-    if (!session?.user) {
-      next(new Error("User not authenticated"));
-      return;
-    }
-
-    let userActiveSocket;
-    try {
-      userActiveSocket = await userSessionStore.getUserActiveSocket(
-        session.user.id,
-      );
-    } catch (error) {
-      logger.error(
-        `Error getting user socket for user ID ${session.user.id}: ${error}`,
-      );
-      next(new Error("User could not be authenticated due to error"));
-      return;
-    }
-
-    if (userActiveSocket) {
-      next(new Error("User already connected"));
-      return;
-    }
-    next();
-  });
-
   const lobbyChannel = new LobbyChannel(
     logger,
     io,
@@ -88,6 +56,24 @@ export async function setupSocketIO(params: {
     if (!session?.user) {
       socket.disconnect();
       return;
+    }
+
+    let userActiveSocket;
+    try {
+      userActiveSocket = await userSessionStore.getUserActiveSocket(
+        session.user.id,
+      );
+    } catch (error) {
+      logger.error(
+        `Error getting user socket for user ID ${session.user.id}: ${error}`,
+      );
+    }
+
+    if (userActiveSocket) {
+      const oldSocket = io.sockets.sockets.get(userActiveSocket);
+      if (oldSocket) {
+        oldSocket.disconnect();
+      }
     }
 
     const { id: userId, username } = session.user;

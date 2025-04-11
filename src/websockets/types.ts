@@ -1,5 +1,4 @@
-import { Game } from "../models/redis/GameModel";
-import { Lobby } from "../models/redis/LobbyModel";
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 import { Socket } from "socket.io";
 
 export type SocketErrorName =
@@ -8,32 +7,87 @@ export type SocketErrorName =
   | "validation_error"
   | "error";
 
+export type UserSession = {
+  id: string;
+  username: string;
+  displayName: string;
+  createdAt: Date;
+  updatedAt: Date;
+  userDecksIds: string[];
+};
+
+export type PlayerIdentity = {
+  id: string;
+  displayName: string;
+};
+
+export type LobbySessionUser = PlayerIdentity & {
+  isReady: boolean;
+  joinedAt: Date;
+};
+
+export type GameSessionUser = PlayerIdentity & {
+  joinedAt: Date;
+};
+
+export type LobbySession = {
+  id: string;
+  name: string;
+  owner: LobbySessionUser;
+  users: LobbySessionUser[];
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type GameSession = {
+  id: string;
+  lobbyId: string;
+  players: GameSessionUser[];
+  gameData: Record<string, string>;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type Session = {
+  user?: UserSession;
+  lobby?: LobbySession | {};
+  game?: GameSession | {};
+};
+
+export type LobbyChannelServerToClientEventNames =
+  | "lobby_created"
+  | "game_started"
+  | "lobby_deleted"
+  | "lobby_joined"
+  | "user_ready"
+  | "user_joined"
+  | "user_left"
+  | "user_session_lobby_removed";
+
 export type LobbyChannelServerToClientEvents = {
-  lobby_created: (message: { lobby: Lobby }) => void;
-  game_started: (message: { game: Game }) => void;
-  lobby_deleted: (message: { lobbyId: string }) => void;
-  lobby_joined: (message: { lobbyId: string }) => void;
-  user_ready: (message: {
-    lobbyId: string;
-    userId: string;
-    ready: boolean;
+  user_session_updated: (message: {
+    session: Session;
+    event_name: LobbyChannelServerToClientEventNames;
   }) => void;
-  user_joined: (message: { userId: string; displayName: string }) => void;
-  user_left: (message: { userId: string; displayName: string }) => void;
-  user_session_lobby_removed: () => void;
   // Error events
   server_error: (error: string) => void;
   client_error: (error: string) => void;
   validation_error: (error: string) => void;
-  error: (error: string) => void;
+};
+
+export type CreateLobbyOptions = {
+  name: string;
+};
+
+export type UpdateLobbyOptions = {
+  name: string;
 };
 
 export type LobbyChannelClientToServerEvents = {
-  create_lobby: (message: Lobby) => void;
-  create_lobby_stream: (message: Lobby) => void;
+  create_lobby: (message: CreateLobbyOptions) => void;
   leave_current_lobby: () => void;
   join_lobby: (message: { lobbyId: string }) => void;
-  update_lobby: (message: Lobby) => void;
+  update_lobby: (message: UpdateLobbyOptions) => void;
   delete_lobby: () => void;
   start_game: () => void;
   set_user_ready: (message: { isReady: boolean }) => void;
@@ -44,11 +98,21 @@ export type LobbyChannelSocket = Socket<
   LobbyChannelServerToClientEvents
 >;
 
+export type GameChannelServerToClientEventNames =
+  | "player_left"
+  | "user_left"
+  | "user_session_game_removed"
+  | "user_session_lobby_removed";
+
 export type GameChannelServerToClientEvents = {
-  player_left: (message: { gameId: string; playerId: string }) => void;
-  user_left: (message: { userId: string; displayName: string }) => void;
-  user_session_game_removed: () => void;
-  user_session_lobby_removed: () => void;
+  user_session_updated: (message: {
+    session: Session;
+    event_name: GameChannelServerToClientEventNames;
+  }) => void;
+  // Error events
+  server_error: (error: string) => void;
+  client_error: (error: string) => void;
+  validation_error: (error: string) => void;
 };
 
 export type GameChannelClientToServerEvents = {

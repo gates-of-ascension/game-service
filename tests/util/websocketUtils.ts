@@ -33,7 +33,7 @@ export async function createLobby(socket: ClientSocket, lobbyName: string) {
   return waitForMultipleSocketsAndEvents([
     {
       socket,
-      event: "lobby_created",
+      event: "user_session_updated",
     },
   ]);
 }

@@ -2,59 +2,47 @@ import { RedisClient } from "../../initDatastores";
 import BaseLogger from "../../utils/logger";
 import BaseRedisModel from "./BaseRedisModel";
 import { v4 as uuidv4 } from "uuid";
-
-export type GamePlayer = {
-  id: string;
-  displayName: string;
-};
-
-export type Game = {
-  id: string;
-  lobbyId: string;
-  players: GamePlayer[];
-  gameData: Record<string, unknown>;
-  startedAt: number;
-  updatedAt: number;
-};
+import { GameSession, GameSessionUser } from "../../websockets/types";
 
 export type CreateGameOptions = {
   lobbyId: string;
-  players: GamePlayer[];
-  id?: string;
-  gameData: Record<string, unknown>;
+  players: GameSessionUser[];
+  gameData: Record<string, string>;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
-export class GameModel extends BaseRedisModel<Game> {
+export class GameModel extends BaseRedisModel<GameSession> {
   constructor(redisClient: RedisClient, logger: BaseLogger) {
     super(redisClient, "game", logger);
   }
 
-  async create(data: CreateGameOptions): Promise<string> {
-    const game = {
-      ...data,
-      id: data.id || uuidv4(),
-      players: data.players,
-      startedAt: Date.now(),
-      updatedAt: Date.now(),
+  async create(game: CreateGameOptions): Promise<GameSession> {
+    const createdGame = {
+      ...game,
+      id: uuidv4(),
     };
-    await this.redisClient.set(this.getKey(game.id), JSON.stringify(game));
-    return game.id;
+    await this.redisClient.set(
+      this.getKey(createdGame.id),
+      JSON.stringify(createdGame),
+    );
+    return createdGame;
   }
 
-  async get(id: string): Promise<Game | null> {
+  async get(id: string): Promise<GameSession | null> {
     const data = await this.redisClient.get(this.getKey(id));
     if (!data) return null;
-    return JSON.parse(data) as Game;
+    return JSON.parse(data) as GameSession;
   }
 
-  async update(id: string, data: Game): Promise<void> {
+  async update(id: string, data: GameSession): Promise<void> {
     const game = await this.get(id);
     if (!game) throw new Error(`Game with id (${id}) not found`);
 
     const updatedGame = {
       ...game,
       ...data,
-      updatedAt: Date.now(),
+      updatedAt: new Date(),
     };
 
     await this.redisClient.set(this.getKey(id), JSON.stringify(updatedGame));

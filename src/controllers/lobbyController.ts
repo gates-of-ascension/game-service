@@ -1,18 +1,19 @@
 import { Session } from "express-session";
 import { ApiError } from "../middleware/apiError";
-import { Lobby, LobbyModel } from "../models/redis/LobbyModel";
+import { LobbyModel } from "../models/redis/LobbyModel";
 import BaseLogger from "../utils/logger";
-import { SocketError } from "../websockets/types";
+import {
+  CreateLobbyOptions,
+  LobbySession,
+  SocketError,
+} from "../websockets/types";
 import { GameModel } from "../models/redis/GameModel";
-import { v4 as uuidv4 } from "uuid";
-import { StreamPublisher } from "../streams/streamPublisher";
 
 export default class LobbyController {
   constructor(
     private readonly logger: BaseLogger,
     private readonly lobbyModel: LobbyModel,
     private readonly gameModel: GameModel,
-    private readonly streamPublisher: StreamPublisher,
   ) {}
 
   async getActiveLobbies() {
@@ -35,7 +36,7 @@ export default class LobbyController {
   //   });
   // }
 
-  async createLobby(session: Session, lobby: Lobby) {
+  async createLobby(session: Session, lobby: CreateLobbyOptions) {
     if (session.lobbyId !== "none") {
       throw new SocketError(
         "client_error",
@@ -65,8 +66,9 @@ export default class LobbyController {
       );
     }
 
+    let lobby;
     try {
-      await this.lobbyModel.setUserReady(
+      lobby = await this.lobbyModel.setUserReady(
         session.lobbyId,
         session.user.id,
         ready,
@@ -77,6 +79,8 @@ export default class LobbyController {
         `Error setting user ready: (${error})`,
       );
     }
+
+    return lobby;
   }
 
   async removeUserSessionLobby(session: Session) {
@@ -87,9 +91,29 @@ export default class LobbyController {
       );
     }
 
-    const lobbyId = session.lobbyId;
+    const response = {
+      lobby: undefined,
+      isLobbyDeleted: false,
+    } as {
+      lobby: LobbySession | undefined;
+      isLobbyDeleted: boolean;
+    };
+
+    let lobbyResult;
     try {
-      await this.lobbyModel.removeUser(lobbyId, session.user.id);
+      lobbyResult = await this.lobbyModel.removeUser(
+        session.lobbyId,
+        session.user.id,
+      );
+      if (lobbyResult.isLobbyDeleted) {
+        session.lobbyId = "none";
+        response.isLobbyDeleted = true;
+      }
+      if (lobbyResult.lobby) {
+        response.lobby = lobbyResult.lobby as LobbySession;
+      } else {
+        session.lobbyId = "none";
+      }
     } catch (error) {
       throw new SocketError(
         "server_error",
@@ -97,8 +121,7 @@ export default class LobbyController {
       );
     }
 
-    session.lobbyId = "none";
-    return { session, lobbyId };
+    return response;
   }
 
   async joinLobby(session: Session, lobbyId: string) {
@@ -109,6 +132,7 @@ export default class LobbyController {
       );
     }
 
+    let lobby;
     try {
       await this.lobbyModel.addUser(
         lobbyId,
@@ -119,8 +143,7 @@ export default class LobbyController {
       throw new SocketError("server_error", `Error joining lobby: (${error})`);
     }
 
-    session.lobbyId = lobbyId;
-    return session;
+    return lobby;
   }
 
   async deleteLobby(session: Session, lobbyId: string) {
@@ -190,30 +213,32 @@ export default class LobbyController {
       }
     });
 
-    const gameId = uuidv4();
     const gamePlayers = [
       {
         id: session.user.id,
         displayName: session.user.displayName,
+        joinedAt: new Date(),
       },
     ];
     lobby.users.forEach((user) => {
       gamePlayers.push({
         id: user.id,
         displayName: user.displayName,
+        joinedAt: new Date(),
       });
     });
 
     const gameData = {
       lobbyId: session.lobbyId,
-      id: gameId,
       players: gamePlayers,
       gameData: {},
-      startedAt: Date.now(),
-      updatedAt: Date.now(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
+
+    let createdGame;
     try {
-      await this.gameModel.create(gameData);
+      createdGame = await this.gameModel.create(gameData);
     } catch (error) {
       throw new SocketError("server_error", `Error starting game: (${error})`);
     }
@@ -224,8 +249,6 @@ export default class LobbyController {
       throw new SocketError("server_error", `Error starting game: (${error})`);
     }
 
-    session.gameId = gameId;
-
-    return { session, game: gameData, secondUserInLobby: lobby.users[0].id };
+    return { game: createdGame, secondUserInLobby: lobby.users[0].id };
   }
 }

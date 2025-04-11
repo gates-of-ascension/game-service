@@ -2,39 +2,12 @@ import { RedisClient } from "../../initDatastores";
 import BaseLogger from "../../utils/logger";
 import BaseRedisModel from "./BaseRedisModel";
 import { v4 as uuidv4 } from "uuid";
-
-export type LobbyUser = {
-  id: string;
-  displayName: string;
-  isReady: boolean;
-  joinedAt: number;
-};
-
-export type LobbyOwner = {
-  id: string;
-  displayName: string;
-  isReady: boolean;
-  joinedAt: number;
-};
-
-export type Lobby = {
-  id: string;
-  name: string;
-  owner: LobbyOwner;
-  users: LobbyUser[];
-  settings: Record<string, string>;
-  createdAt: number;
-  updatedAt: number;
-};
-
-export type CreateLobbyOptions = {
-  name: string;
-  settings: Record<string, string>;
-};
+import { CreateLobbyOptions } from "../../websockets/types";
+import { LobbySession } from "../../websockets/types";
 
 const DEFAULT_MAX_USERS = 1;
 
-export class LobbyModel extends BaseRedisModel<Lobby> {
+export class LobbyModel extends BaseRedisModel<LobbySession> {
   private readonly defaultTTL: number;
 
   constructor(redisClient: RedisClient, logger: BaseLogger) {
@@ -46,19 +19,19 @@ export class LobbyModel extends BaseRedisModel<Lobby> {
     data: CreateLobbyOptions,
     ownerId: string,
     ownerDisplayName: string,
-  ): Promise<Lobby> {
-    const lobby: Lobby = {
+  ): Promise<LobbySession> {
+    const lobby: LobbySession = {
       ...data,
       id: uuidv4(),
       owner: {
         id: ownerId,
         displayName: ownerDisplayName,
         isReady: false,
-        joinedAt: Date.now(),
+        joinedAt: new Date(),
       },
       users: [],
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
     await this.redisClient.set(this.getKey(lobby.id), JSON.stringify(lobby), {
       EX: this.defaultTTL,
@@ -67,16 +40,16 @@ export class LobbyModel extends BaseRedisModel<Lobby> {
     return lobby;
   }
 
-  async get(id: string): Promise<Lobby | null> {
+  async get(id: string): Promise<LobbySession | null> {
     const data = await this.redisClient.get(this.getKey(id));
     if (!data) return null;
-    return JSON.parse(data) as Lobby;
+    return JSON.parse(data) as LobbySession;
   }
 
-  async update(id: string, data: Lobby): Promise<void> {
+  async update(id: string, data: LobbySession): Promise<void> {
     const updatedLobby = {
       ...data,
-      updatedAt: Date.now(),
+      updatedAt: new Date(),
     };
 
     await this.redisClient.set(this.getKey(id), JSON.stringify(updatedLobby), {
@@ -89,7 +62,7 @@ export class LobbyModel extends BaseRedisModel<Lobby> {
     await this.redisClient.sRem("active_lobbies", id);
   }
 
-  async getActiveLobbies(): Promise<Lobby[]> {
+  async getActiveLobbies(): Promise<LobbySession[]> {
     const lobbyIds = await this.redisClient.sMembers("active_lobbies");
     if (lobbyIds.length === 0) return [];
     const lobbiesData = await this.redisClient.mGet(
@@ -97,7 +70,7 @@ export class LobbyModel extends BaseRedisModel<Lobby> {
     );
     const lobbies = lobbiesData
       .filter((data) => data !== null)
-      .map((data) => JSON.parse(data) as Lobby);
+      .map((data) => JSON.parse(data) as LobbySession);
     return lobbies;
   }
 
@@ -113,7 +86,7 @@ export class LobbyModel extends BaseRedisModel<Lobby> {
     lobbyId: string,
     userId: string,
     displayName: string,
-  ): Promise<void> {
+  ): Promise<LobbySession> {
     const lobby = await this.get(lobbyId);
     if (!lobby) {
       throw new Error(`Lobby with id (${lobbyId}) not found`);
@@ -134,19 +107,25 @@ export class LobbyModel extends BaseRedisModel<Lobby> {
       id: userId,
       displayName,
       isReady: false,
-      joinedAt: Date.now(),
+      joinedAt: new Date(),
     });
 
     await this.update(lobbyId, lobby);
+
+    return lobby;
   }
 
-  async removeUser(lobbyId: string, userId: string): Promise<void> {
+  async removeUser(
+    lobbyId: string,
+    userId: string,
+  ): Promise<{ lobby: LobbySession | null; isLobbyDeleted: boolean }> {
     const lobby = await this.get(lobbyId);
+    let isLobbyDeleted = false;
     if (!lobby) {
       this.logger.warn(
         `Lobby with id (${lobbyId}) not found, skipping user removal...`,
       );
-      return;
+      return { lobby: null, isLobbyDeleted };
     }
 
     if (lobby.owner.id === userId) {
@@ -158,25 +137,28 @@ export class LobbyModel extends BaseRedisModel<Lobby> {
         await this.update(lobbyId, lobby);
       } else {
         await this.delete(lobbyId);
+        isLobbyDeleted = true;
       }
     } else {
       lobby.users = lobby.users.filter((u) => u.id !== userId);
       await this.update(lobbyId, lobby);
     }
+
+    return { lobby, isLobbyDeleted };
   }
 
   async setUserReady(
     lobbyId: string,
     userId: string,
     ready: boolean,
-  ): Promise<void> {
+  ): Promise<LobbySession> {
     const lobby = await this.get(lobbyId);
     if (!lobby) throw new Error(`Lobby with id (${lobbyId}) not found`);
 
     if (lobby.owner.id === userId) {
       lobby.owner.isReady = ready;
       await this.update(lobbyId, lobby);
-      return;
+      return lobby;
     }
 
     const userIndex = lobby.users.findIndex((u) => u.id === userId);
@@ -188,5 +170,6 @@ export class LobbyModel extends BaseRedisModel<Lobby> {
     lobby.users[userIndex].isReady = ready;
 
     await this.update(lobbyId, lobby);
+    return lobby;
   }
 }
