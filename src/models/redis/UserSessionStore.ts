@@ -3,6 +3,7 @@ import { RedisStore } from "connect-redis";
 import { RedisClient } from "../../initDatastores";
 import BaseLogger from "../../utils/logger";
 import { LobbyModel } from "./LobbyModel";
+import { GameModel } from "./GameModel";
 
 export interface UserSessionData {
   sessionId: string;
@@ -23,12 +24,14 @@ export class UserSessionStore extends RedisStore {
   private readonly logger: BaseLogger;
   private readonly defaultTTL: number;
   private readonly lobbyModel: LobbyModel;
+  private readonly gameModel: GameModel;
 
   constructor(options: {
     client: RedisClient;
     prefix: string;
     logger: BaseLogger;
     lobbyModel: LobbyModel;
+    gameModel: GameModel;
   }) {
     super({
       client: options.client,
@@ -38,6 +41,7 @@ export class UserSessionStore extends RedisStore {
     this.logger = options.logger;
     this.defaultTTL = 60 * 60 * 24 * 30; // 30 days
     this.lobbyModel = options.lobbyModel;
+    this.gameModel = options.gameModel;
   }
 
   async getUserActiveSession(userId: string): Promise<string | null> {
@@ -117,13 +121,14 @@ export class UserSessionStore extends RedisStore {
   async transferUserSession(
     userId: string,
     newSessionId: string,
-  ): Promise<string> {
+  ): Promise<{ lobbyId: string; gameId: string }> {
     /*
-    The only variable we need from redis is the lobbyId. The rest of the data
+    The only variable we need from redis is the lobbyId and gameId. The rest of the data
     is stored in postgres.
     */
 
     let lobbyId = "none";
+    let gameId = "none";
     const oldSessionId = await this.getUserActiveSession(userId);
     if (oldSessionId) {
       const oldSessionData = await this.getUserSession(oldSessionId);
@@ -135,6 +140,16 @@ export class UserSessionStore extends RedisStore {
             `Lobby (${lobbyId}) not found, setting lobbyId to none`,
           );
           lobbyId = "none";
+        }
+      }
+      if (oldSessionData?.gameId) {
+        gameId = oldSessionData.gameId;
+        const game = await this.gameModel.get(gameId);
+        if (!game) {
+          this.logger.error(
+            `Game (${gameId}) not found, setting gameId to none`,
+          );
+          gameId = "none";
         }
       }
     }
@@ -149,7 +164,10 @@ export class UserSessionStore extends RedisStore {
       await this.destroy(oldSessionId);
     }
 
-    return lobbyId;
+    return {
+      lobbyId,
+      gameId,
+    };
   }
 
   async setGameIdForUser(userId: string, gameId: string): Promise<void> {

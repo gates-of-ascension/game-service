@@ -35,6 +35,7 @@ export default async function createServer() {
     prefix: "session:",
     logger,
     lobbyModel,
+    gameModel,
   });
   const controllers = await createControllers({
     logger,

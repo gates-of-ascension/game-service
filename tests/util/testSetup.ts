@@ -38,6 +38,7 @@ export default async function setupTestEnvironment() {
     prefix: "session:",
     logger,
     lobbyModel,
+    gameModel,
   });
   const controllers = await createControllers({
     logger,

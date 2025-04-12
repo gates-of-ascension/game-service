@@ -131,20 +131,26 @@ export default class UsersController {
       },
       userDecksIds,
       lobbyId: "none",
+      gameId: "none",
     } as UserSessionData;
 
     let lobbyId = "none";
+    let gameId = "none";
     try {
-      lobbyId = await this.userSessionStore.transferUserSession(
-        user.id,
-        requestBody.session.id,
-      );
+      const { lobbyId: newLobbyId, gameId: newGameId } =
+        await this.userSessionStore.transferUserSession(
+          user.id,
+          requestBody.session.id,
+        );
+      lobbyId = newLobbyId;
+      gameId = newGameId;
     } catch (error) {
       this.logger.error(
         `Error during transfer of previous user session (${user.username}) from redis: (${error})`,
       );
     }
     userSession.lobbyId = lobbyId;
+    userSession.gameId = gameId;
 
     return userSession;
   }

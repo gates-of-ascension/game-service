@@ -4,20 +4,34 @@ import { Express } from "express";
 import request from "supertest";
 import User from "../../../src/models/postgres/User";
 import bcrypt from "bcrypt";
-import { createUserAndLogin } from "../../util/authHelper";
+import {
+  createUserAndLogin,
+  loginAndCreateSocket,
+} from "../../util/authHelper";
 import { RedisClient } from "../../../src/initDatastores";
 import { cleanupDataStores } from "../../util/dataStoreCleanup";
+import { UserSessionStore } from "../../../src/models/redis/UserSessionStore";
+import http from "http";
+import { createLobby } from "../../util/websocketUtils";
 
 describe("Users", () => {
   let app: Express;
   let redisClient: RedisClient;
+  let userSessionStore: UserSessionStore;
+  let server: http.Server;
 
   beforeAll(async () => {
-    const { app: testApp, redisClient: testRedisClient } =
-      await setupTestEnvironment();
+    const {
+      app: testApp,
+      redisClient: testRedisClient,
+      userSessionStore: testUserSessionStore,
+      server: testServer,
+    } = await setupTestEnvironment();
     app = testApp;
     redisClient = testRedisClient;
-    await cleanupDataStores(redisClient);
+    userSessionStore = testUserSessionStore;
+    server = testServer;
+    server.listen(process.env.PORT!);
   });
 
   beforeEach(async () => {
@@ -96,6 +110,85 @@ describe("Users", () => {
         password: "password",
       });
       expect(response.status).toBe(409);
+    });
+  });
+
+  describe("POST /v1/users/login", () => {
+    it("should return 400 if username is not provided", async () => {
+      const response = await request(app).post("/v1/users/login").send({
+        password: "password",
+      });
+      expect(response.status).toBe(400);
+    });
+
+    it("should return 400 if password is not provided", async () => {
+      const response = await request(app).post("/v1/users/login").send({
+        username: "john.doe",
+      });
+      expect(response.status).toBe(400);
+    });
+
+    it("should return 401 if username and password do not match", async () => {
+      await request(app).post("/v1/users/signup").send({
+        displayName: "John Doe",
+        username: "john.doe",
+        password: "password",
+      });
+
+      const response = await request(app).post("/v1/users/login").send({
+        username: "john.doe",
+        password: "password123",
+      });
+      expect(response.status).toBe(401);
+    });
+
+    it("should return 200 if username and password match", async () => {
+      await request(app).post("/v1/users/signup").send({
+        displayName: "John Doe",
+        username: "john.doe",
+        password: "password",
+      });
+
+      const response = await request(app).post("/v1/users/login").send({
+        username: "john.doe",
+        password: "password",
+      });
+      expect(response.status).toBe(200);
+      expect(response.body.user.id).toBeDefined();
+      expect(response.body.user.username).toBe("john.doe");
+      expect(response.body.user.displayName).toBe("John Doe");
+      expect(response.body.user.createdAt).toBeDefined();
+      expect(response.body.user.updatedAt).toBeDefined();
+      expect(response.body.user.userDecksIds).toBeDefined();
+      expect(response.body.lobbyId).toBe("none");
+      expect(response.body.gameId).toBe("none");
+    });
+
+    it("should find the user's old active session and transfer lobby data to the new session", async () => {
+      const { socket, user, agent } = await loginAndCreateSocket(app, {
+        username: "john.doe",
+        displayName: "John Doe",
+        password: "password",
+      });
+      socket.connect();
+      await createLobby(socket, "Test Lobby");
+      const sessionId = await userSessionStore.getUserActiveSession(user.id);
+      if (!sessionId) {
+        throw new Error("No session id found");
+      }
+      const userSession = await userSessionStore.getUserSession(sessionId);
+      const lobbyId = userSession?.lobbyId;
+
+      const response = await agent.post("/v1/users/login").send({
+        username: "john.doe",
+        password: "password",
+      });
+      expect(response.status).toBe(200);
+      expect(response.body.user.id).toBeDefined();
+      expect(response.body.user.username).toBe("john.doe");
+      expect(response.body.user.displayName).toBe("John Doe");
+      expect(response.body.lobbyId).toBe(lobbyId);
+      expect(response.body.gameId).toBe("none");
     });
   });
 

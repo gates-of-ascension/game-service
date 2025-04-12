@@ -67,7 +67,12 @@ export default (usersController: UsersController) => {
             id: response.user.id,
             username: response.user.username,
             displayName: response.user.displayName,
+            userDecksIds: response.userDecksIds,
+            createdAt: response.user.createdAt,
+            updatedAt: response.user.updatedAt,
           },
+          lobbyId: response.lobbyId,
+          gameId: response.gameId,
         });
       });
     },

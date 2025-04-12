@@ -53,8 +53,9 @@ export async function createUserClientSocket(authCookie: string) {
 export async function loginAndCreateSocket(
   app: Express,
   user?: {
-    username: string;
-    displayName: string;
+    username?: string;
+    displayName?: string;
+    password?: string;
   },
 ) {
   const {
