@@ -9,6 +9,8 @@ import {
 } from "../websockets/types";
 import { GameModel } from "../models/redis/GameModel";
 
+const DEFAULT_MAX_USERS = 1;
+
 export default class LobbyController {
   constructor(
     private readonly logger: BaseLogger,
@@ -132,10 +134,27 @@ export default class LobbyController {
       );
     }
 
-    let lobby;
+    const lobby = await this.lobbyModel.get(lobbyId);
+    if (!lobby) {
+      throw new SocketError("client_error", "Lobby not found");
+    }
+
+    if (lobby.owner.id === session.user.id) {
+      throw new SocketError("client_error", "User is the owner of the lobby");
+    }
+
+    if (lobby.users.find((user) => user.id === session.user.id)) {
+      throw new SocketError("client_error", "User is already in the lobby");
+    }
+
+    if (lobby.users.length >= DEFAULT_MAX_USERS) {
+      throw new SocketError("client_error", "Lobby is full");
+    }
+
+    let joinedLobby;
     try {
-      await this.lobbyModel.addUser(
-        lobbyId,
+      joinedLobby = await this.lobbyModel.addUser(
+        lobby,
         session.user.id,
         session.user.displayName,
       );
@@ -143,7 +162,9 @@ export default class LobbyController {
       throw new SocketError("server_error", `Error joining lobby: (${error})`);
     }
 
-    return lobby;
+    session.lobbyId = joinedLobby.id;
+
+    return joinedLobby;
   }
 
   async deleteLobby(session: Session, lobbyId: string) {

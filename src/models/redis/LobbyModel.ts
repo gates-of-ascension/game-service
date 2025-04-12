@@ -5,8 +5,6 @@ import { v4 as uuidv4 } from "uuid";
 import { CreateLobbyOptions } from "../../websockets/types";
 import { LobbySession } from "../../websockets/types";
 
-const DEFAULT_MAX_USERS = 1;
-
 export class LobbyModel extends BaseRedisModel<LobbySession> {
   private readonly defaultTTL: number;
 
@@ -83,26 +81,10 @@ export class LobbyModel extends BaseRedisModel<LobbySession> {
   }
 
   async addUser(
-    lobbyId: string,
+    lobby: LobbySession,
     userId: string,
     displayName: string,
   ): Promise<LobbySession> {
-    const lobby = await this.get(lobbyId);
-    if (!lobby) {
-      throw new Error(`Lobby with id (${lobbyId}) not found`);
-    }
-
-    if (lobby.users.length >= DEFAULT_MAX_USERS) {
-      throw new Error(`Lobby with id (${lobbyId}) is already full!`);
-    }
-
-    const isUserInLobby = lobby.users.some((user) => user.id === userId);
-    if (isUserInLobby) {
-      throw new Error(
-        `User with id (${userId}) already in lobby with id (${lobbyId})`,
-      );
-    }
-
     lobby.users.push({
       id: userId,
       displayName,
@@ -110,7 +92,7 @@ export class LobbyModel extends BaseRedisModel<LobbySession> {
       joinedAt: new Date(),
     });
 
-    await this.update(lobbyId, lobby);
+    await this.update(lobby.id, lobby);
 
     return lobby;
   }

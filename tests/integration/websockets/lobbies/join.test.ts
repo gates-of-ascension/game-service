@@ -120,29 +120,42 @@ describe("Lobby Joining", () => {
     socket2.emit("join_lobby", {
       lobbyId: userSession!.lobbyId!,
     });
+    const userJoinedEventMessage = {
+      session: {
+        lobby: {
+          id: userSession!.lobbyId!,
+          name: "Test Lobby",
+          owner: {
+            displayName: user1.displayName,
+            id: user1.id,
+            isReady: false,
+            joinedAt: expect.any(String),
+          },
+          users: [
+            {
+              displayName: user2.displayName,
+              id: user2.id,
+              isReady: false,
+              joinedAt: expect.any(String),
+            },
+          ],
+          createdAt: expect.any(String),
+          updatedAt: expect.any(String),
+        },
+      },
+      event_name: "user_joined",
+    };
+
     await waitForMultipleSocketsAndEvents([
       {
         socket: socket1,
-        event: "user_joined",
-        message: {
-          userId: user2.id,
-          displayName: user2.displayName,
-        },
+        event: "user_session_updated",
+        message: userJoinedEventMessage,
       },
       {
         socket: socket2,
-        event: "user_joined",
-        message: {
-          userId: user2.id,
-          displayName: user2.displayName,
-        },
-      },
-      {
-        socket: socket2,
-        event: "lobby_joined",
-        message: {
-          lobbyId: userSession!.lobbyId!,
-        },
+        event: "user_session_updated",
+        message: userJoinedEventMessage,
       },
     ]);
 
@@ -211,7 +224,8 @@ describe("Lobby Joining", () => {
     await waitForMultipleSocketsAndEvents([
       {
         socket: socket3,
-        event: "server_error",
+        event: "client_error",
+        message: "Lobby is full",
       },
     ]);
   });
@@ -266,6 +280,7 @@ describe("Lobby Joining", () => {
       {
         socket: socket1,
         event: "client_error",
+        message: "Cannot join lobby while in another lobby",
       },
     ]);
   });

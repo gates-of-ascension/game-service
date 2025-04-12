@@ -46,7 +46,7 @@ export async function joinLobby(socket: ClientSocket, lobbyId: string) {
   return waitForMultipleSocketsAndEvents([
     {
       socket,
-      event: "lobby_joined",
+      event: "user_session_updated",
     },
   ]);
 }
