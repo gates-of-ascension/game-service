@@ -38,6 +38,14 @@ export async function setupSocketIO(params: {
   io.engine.use(sessionMiddleware);
 
   io.use(socketErrorMiddleware(logger));
+  io.use(async (socket, next) => {
+    const session = socket.request.session;
+    if (!session?.user) {
+      next(new Error("User not authenticated"));
+    } else {
+      next();
+    }
+  });
   const lobbyChannel = new LobbyChannel(
     logger,
     io,
@@ -53,10 +61,6 @@ export async function setupSocketIO(params: {
 
   io.on("connection", async (socket) => {
     const session = socket.request.session;
-    if (!session?.user) {
-      socket.disconnect();
-      return;
-    }
 
     let userActiveSocket;
     try {

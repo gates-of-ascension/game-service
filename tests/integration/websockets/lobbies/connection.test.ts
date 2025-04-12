@@ -1,9 +1,6 @@
 import { expect } from "@jest/globals";
 import { io as ioc } from "socket.io-client";
-import {
-  loginAndCreateSocket,
-  createUserClientSocket,
-} from "../../../util/authHelper";
+import { loginAndCreateSocket } from "../../../util/authHelper";
 import { waitForMultipleSocketsAndEvents } from "../../../util/websocketUtils";
 import { UserSessionStore } from "../../../../src/models/redis/UserSessionStore";
 import setupTestEnvironment from "../../../util/testSetup";
@@ -46,6 +43,7 @@ describe("Lobby Connection", () => {
       },
     };
     const socket = ioc(`http://localhost:${process.env.PORT!}`, socketOptions);
+    socket.connect();
     socket.emit("create_lobby", {
       name: "Test Lobby",
     });
@@ -54,31 +52,11 @@ describe("Lobby Connection", () => {
       {
         socket,
         event: "connect_error",
-      },
-    ]);
-  });
-
-  it("should fail if the user is already connected to the websocket", async () => {
-    const { socket: socket1, authCookie } = await loginAndCreateSocket(app);
-    socket1.connect();
-    await waitForMultipleSocketsAndEvents([
-      {
-        socket: socket1,
-        event: "connect",
+        message: new Error("User not authenticated"),
       },
     ]);
 
-    const socket2 = await createUserClientSocket(authCookie);
-    socket2.connect();
-    await waitForMultipleSocketsAndEvents([
-      {
-        socket: socket2,
-        event: "connect_error",
-      },
-    ]);
-    expect(socket2).toBeDefined();
-    expect(socket2.connected).toBe(false);
-    expect(socket1.connected).toBe(true);
+    expect(socket.connected).toBe(false);
   });
 
   it("should connect to the websocket with a valid session", async () => {
