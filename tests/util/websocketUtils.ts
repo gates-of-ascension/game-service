@@ -5,7 +5,7 @@ import { Socket as ServerSocket } from "socket.io";
 type SocketAndEvent = {
   socket: ServerSocket | ClientSocket;
   event: string;
-  message?: Record<string, unknown>;
+  message?: Record<string, unknown> | string;
 };
 
 export async function waitForMultipleSocketsAndEvents(
