@@ -4,8 +4,7 @@ import {
   waitForMultipleSocketsAndEvents,
   createLobby,
   joinLobby,
-  expectLobbyState,
-  setUserReady,
+  waitForSocketEvent,
 } from "../../../util/websocketUtils";
 import setupTestEnvironment from "../../../util/testSetup";
 import { UserSessionStore } from "../../../../src/models/redis/UserSessionStore";
@@ -58,6 +57,7 @@ describe("User Ready Status", () => {
       {
         socket,
         event: "client_error",
+        message: "Cannot set user ready while not in a lobby",
       },
     ]);
   });
@@ -74,65 +74,77 @@ describe("User Ready Status", () => {
 
     await createLobby(socket, "Test Lobby");
 
-    socket.emit("set_user_ready", { isReady: true });
-    await waitForMultipleSocketsAndEvents([
-      {
-        socket,
-        event: "user_ready",
-        message: {
-          lobbyId: expect.any(String),
-          userId: user.id,
-          ready: true,
-        },
-      },
-    ]);
-
-    socket.emit("set_user_ready", { isReady: false });
-    await waitForMultipleSocketsAndEvents([
-      {
-        socket,
-        event: "user_ready",
-        message: {
-          lobbyId: expect.any(String),
-          userId: user.id,
-          ready: false,
-        },
-      },
-    ]);
-  });
-
-  it("should set the owner user as ready in redis", async () => {
-    const { socket, user } = await loginAndCreateSocket(app);
-    socket.connect();
-    await waitForMultipleSocketsAndEvents([
-      {
-        socket,
-        event: "connect",
-      },
-    ]);
-
-    await createLobby(socket, "Test Lobby");
-
-    await setUserReady(socket);
-
-    const sessionId = await userSessionStore.getUserActiveSession(user.id);
-    if (!sessionId) {
-      throw new Error("No session id found");
+    const userSessionId = await userSessionStore.getUserActiveSession(user.id);
+    if (!userSessionId) {
+      throw new Error("No user session id found");
     }
-    const userSession = await userSessionStore.getUserSession(sessionId);
+    const userSession = await userSessionStore.getUserSession(userSessionId);
     expect(userSession).not.toBeNull();
     expect(userSession?.lobbyId).not.toBe("none");
+    const lobbyId = userSession?.lobbyId;
+    const lobby = await lobbyModel.get(lobbyId!);
+    expect(lobby).not.toBeNull();
+    expect(lobby?.owner.id).toBe(user.id);
+    expect(lobby?.owner.isReady).toBe(false);
 
-    await expectLobbyState(lobbyModel, userSession!.lobbyId!, {
-      name: "Test Lobby",
-      isReady: {
-        userId: user.id,
-        isReady: true,
+    socket.emit("set_user_ready", { isReady: true });
+    const readyEvent1 = await waitForSocketEvent(
+      socket,
+      "user_session_updated",
+    );
+    expect(readyEvent1.data).toEqual({
+      session: {
+        lobby: {
+          id: lobbyId!,
+          name: "Test Lobby",
+          owner: {
+            id: user.id,
+            displayName: user.displayName,
+            isReady: true,
+            joinedAt: expect.any(String),
+          },
+          users: [],
+          createdAt: expect.any(String),
+          updatedAt: expect.any(String),
+        },
       },
+      event_name: "user_ready",
     });
+
+    const lobby2 = await lobbyModel.get(lobbyId!);
+    expect(lobby2).not.toBeNull();
+    expect(lobby2?.owner.isReady).toBe(true);
+
+    socket.emit("set_user_ready", { isReady: false });
+    const readyEvent2 = await waitForSocketEvent(
+      socket,
+      "user_session_updated",
+    );
+    expect(readyEvent2.data).toEqual({
+      session: {
+        lobby: {
+          id: lobbyId!,
+          name: "Test Lobby",
+          owner: {
+            id: user.id,
+            displayName: user.displayName,
+            isReady: false,
+            joinedAt: expect.any(String),
+          },
+          users: [],
+          createdAt: expect.any(String),
+          updatedAt: expect.any(String),
+        },
+      },
+      event_name: "user_ready",
+    });
+
+    const lobby3 = await lobbyModel.get(lobbyId!);
+    expect(lobby3).not.toBeNull();
+    expect(lobby3?.owner.isReady).toBe(false);
   });
 
-  it("should set the joined user as ready in redis", async () => {
+  it("should set a joined user as ready in redis and emit the event to the lobby", async () => {
     const { socket, user } = await loginAndCreateSocket(app);
     socket.connect();
     await waitForMultipleSocketsAndEvents([
@@ -174,14 +186,50 @@ describe("User Ready Status", () => {
     expect(userSession2).not.toBeNull();
     expect(userSession2?.lobbyId).not.toBe("none");
 
-    await setUserReady(socket2);
+    socket2.emit("set_user_ready", { isReady: true });
 
-    await expectLobbyState(lobbyModel, userSession2!.lobbyId!, {
+    const socketEvents = await Promise.all([
+      waitForSocketEvent(socket2, "user_session_updated"),
+      waitForSocketEvent(socket, "user_session_updated"),
+    ]);
+    const expectedLobby = {
+      id: userSession2!.lobbyId!,
       name: "Test Lobby",
-      isReady: {
-        userId: user2.id,
-        isReady: true,
+      owner: {
+        id: user.id,
+        displayName: user.displayName,
+        isReady: false,
+        joinedAt: expect.any(String),
       },
+      users: [
+        {
+          id: user2.id,
+          displayName: user2.displayName,
+          isReady: true,
+          joinedAt: expect.any(String),
+        },
+      ],
+      createdAt: expect.any(String),
+      updatedAt: expect.any(String),
+    };
+
+    expect(socketEvents[0].data).toEqual({
+      session: {
+        lobby: expectedLobby,
+      },
+      event_name: "user_ready",
     });
+
+    expect(socketEvents[1].data).toEqual({
+      session: {
+        lobby: expectedLobby,
+      },
+      event_name: "user_ready",
+    });
+
+    const lobby = await lobbyModel.get(userSession2!.lobbyId!);
+    expect(lobby).not.toBeNull();
+    expect(lobby?.owner.isReady).toBe(false);
+    expect(lobby?.users[0].isReady).toBe(true);
   });
 });

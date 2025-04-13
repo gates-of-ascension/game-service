@@ -69,13 +69,6 @@ export default class LobbyController {
       throw new SocketError("client_error", "Lobby not found");
     }
 
-    if (lobby.owner.id !== session.user.id) {
-      throw new SocketError(
-        "client_error",
-        "User is not the owner of the lobby",
-      );
-    }
-
     if (lobby.owner.id === session.user.id) {
       lobby.owner.isReady = ready;
     } else {

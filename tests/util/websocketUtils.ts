@@ -72,7 +72,7 @@ export async function setUserReady(socket: ClientSocket) {
   return waitForMultipleSocketsAndEvents([
     {
       socket,
-      event: "user_ready",
+      event: "user_session_updated",
     },
   ]);
 }
