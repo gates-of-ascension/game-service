@@ -2,7 +2,7 @@ import { LobbyModel } from "../../src/models/redis/LobbyModel";
 import { Socket as ClientSocket } from "socket.io-client";
 import { Socket as ServerSocket } from "socket.io";
 
-type SocketAndEvent = {
+export type SocketAndEvent = {
   socket: ServerSocket | ClientSocket;
   event: string;
   message?: Record<string, unknown> | string[] | string | Error;
@@ -23,6 +23,19 @@ export async function waitForMultipleSocketsAndEvents(
       });
     }),
   );
+}
+
+export async function waitForSocketEvent(
+  socket: ServerSocket | ClientSocket,
+  event: string,
+) {
+  return new Promise<{
+    data: Record<string, unknown> | string[] | string | Error;
+  }>((resolve) => {
+    socket.once(event, (data) => {
+      resolve({ data });
+    });
+  });
 }
 
 export async function createLobby(socket: ClientSocket, lobbyName: string) {

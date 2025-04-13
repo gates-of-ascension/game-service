@@ -2,11 +2,7 @@ import { Session } from "express-session";
 import { ApiError } from "../middleware/apiError";
 import { LobbyModel } from "../models/redis/LobbyModel";
 import BaseLogger from "../utils/logger";
-import {
-  CreateLobbyOptions,
-  LobbySession,
-  SocketError,
-} from "../websockets/types";
+import { CreateLobbyOptions, SocketError } from "../websockets/types";
 import { GameModel } from "../models/redis/GameModel";
 
 const DEFAULT_MAX_USERS = 1;
@@ -68,13 +64,30 @@ export default class LobbyController {
       );
     }
 
-    let lobby;
-    try {
-      lobby = await this.lobbyModel.setUserReady(
-        session.lobbyId,
-        session.user.id,
-        ready,
+    const lobby = await this.lobbyModel.get(session.lobbyId);
+    if (!lobby) {
+      throw new SocketError("client_error", "Lobby not found");
+    }
+
+    if (lobby.owner.id !== session.user.id) {
+      throw new SocketError(
+        "client_error",
+        "User is not the owner of the lobby",
       );
+    }
+
+    if (lobby.owner.id === session.user.id) {
+      lobby.owner.isReady = ready;
+    } else {
+      const userIndex = lobby.users.findIndex(
+        (user) => user.id === session.user.id,
+      );
+      lobby.users[userIndex].isReady = ready;
+    }
+
+    let updatedLobby;
+    try {
+      updatedLobby = await this.lobbyModel.update(session.lobbyId, lobby);
     } catch (error) {
       throw new SocketError(
         "server_error",
@@ -82,7 +95,7 @@ export default class LobbyController {
       );
     }
 
-    return lobby;
+    return updatedLobby;
   }
 
   async removeUserSessionLobby(session: Session) {
@@ -93,37 +106,12 @@ export default class LobbyController {
       );
     }
 
-    const response = {
-      lobby: undefined,
-      isLobbyDeleted: false,
-    } as {
-      lobby: LobbySession | undefined;
-      isLobbyDeleted: boolean;
-    };
-
-    let lobbyResult;
-    try {
-      lobbyResult = await this.lobbyModel.removeUser(
-        session.lobbyId,
-        session.user.id,
-      );
-      if (lobbyResult.isLobbyDeleted) {
-        session.lobbyId = "none";
-        response.isLobbyDeleted = true;
-      }
-      if (lobbyResult.lobby) {
-        response.lobby = lobbyResult.lobby as LobbySession;
-      } else {
-        session.lobbyId = "none";
-      }
-    } catch (error) {
-      throw new SocketError(
-        "server_error",
-        `Error removing user from lobby: (${error})`,
-      );
-    }
-
-    return response;
+    const lobby = await this.lobbyModel.removeUser(
+      session.lobbyId,
+      session.user.id,
+    );
+    session.lobbyId = "none";
+    return lobby;
   }
 
   async joinLobby(session: Session, lobbyId: string) {

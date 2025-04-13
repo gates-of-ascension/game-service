@@ -17,6 +17,7 @@ const config: Config = {
   testTimeout: 10000,
   setupFiles: ["<rootDir>/tests/util/envVariables.ts"],
   globalSetup: "<rootDir>/tests/util/testSetup.ts",
+  reporters: [["default", { summaryThreshold: 30 }]],
 };
 
 export default config;

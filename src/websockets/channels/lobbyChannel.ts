@@ -12,7 +12,6 @@ import {
   LobbyChannelServerToClientEvents,
   CreateLobbyOptions,
   UpdateLobbyOptions,
-  LobbySession,
 } from "../types";
 import LobbyController from "../../controllers/lobbyController";
 import { UserSessionStore } from "../../models/redis/UserSessionStore";
@@ -139,44 +138,38 @@ class LobbyChannel extends BaseChannel<LobbyChannelServerToClientEvents> {
     const session = socket.request.session;
     try {
       const lobby = await this.lobbyController.removeUserSessionLobby(session);
-      if (lobby.isLobbyDeleted) {
-        session.lobbyId = "none";
+      session.save();
+      this.leaveRoom(socket, session.lobbyId);
+
+      // If no lobby was returned, it means either:
+      // 1. The lobby didn't exist
+      // 2. The lobby was deleted (owner left with no other users)
+      if (!lobby) {
         socket.emit("user_session_updated", {
           session: {
             lobby: {},
           },
           event_name: "user_session_lobby_removed",
         });
-        session.save();
         return;
-      }
-
-      if (!lobby.lobby) {
-        this.emitToRoom(session.lobbyId, "user_session_updated", {
+      } else {
+        socket.emit("user_session_updated", {
           session: {
             lobby: {},
           },
-          event_name: "user_left",
+          event_name: "user_session_lobby_removed",
         });
-        this.leaveRoom(socket, session.lobbyId);
-        this.logger.warn(
-          `User (${socket.id}) tried to leave lobby (${session.lobbyId}), but lobby did not exist.`,
-        );
-        session.save();
-        return;
       }
 
-      this.emitToRoom(lobby.lobby.id, "user_session_updated", {
+      this.emitToRoom(lobby.id, "user_session_updated", {
         session: {
-          lobby: lobby.lobby as LobbySession,
+          lobby,
         },
         event_name: "user_left",
       });
-      this.leaveRoom(socket, lobby.lobby.id);
-      session.save();
+      this.leaveRoom(socket, lobby.id);
     } catch (error) {
       this.handleError(socket, error as Error | SocketError);
-      return;
     }
   }
 

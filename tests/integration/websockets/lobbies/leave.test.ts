@@ -4,6 +4,7 @@ import {
   waitForMultipleSocketsAndEvents,
   createLobby,
   joinLobby,
+  waitForSocketEvent,
 } from "../../../util/websocketUtils";
 import setupTestEnvironment from "../../../util/testSetup";
 import { UserSessionStore } from "../../../../src/models/redis/UserSessionStore";
@@ -40,7 +41,7 @@ describe("Lobby Leaving", () => {
     await cleanupDataStores(redisClient);
   });
 
-  it("should return a client error if the user is not in the lobby", async () => {
+  it("should return a client error if the user is not in a lobby", async () => {
     const { socket } = await loginAndCreateSocket(app);
     socket.connect();
     await waitForMultipleSocketsAndEvents([
@@ -56,6 +57,7 @@ describe("Lobby Leaving", () => {
       {
         socket,
         event: "client_error",
+        message: "Cannot remove user from lobby, user is not in a lobby",
       },
     ]);
   });
@@ -77,15 +79,13 @@ describe("Lobby Leaving", () => {
     await waitForMultipleSocketsAndEvents([
       {
         socket,
-        event: "user_left",
+        event: "user_session_updated",
         message: {
-          userId: user.id,
-          displayName: user.displayName,
+          session: {
+            lobby: {},
+          },
+          event_name: "user_session_lobby_removed",
         },
-      },
-      {
-        socket,
-        event: "user_session_lobby_removed",
       },
     ]);
 
@@ -137,28 +137,35 @@ describe("Lobby Leaving", () => {
 
     socket2.emit("leave_current_lobby");
 
-    await waitForMultipleSocketsAndEvents([
-      {
-        socket: socket1,
-        event: "user_left",
-        message: {
-          userId: user2.id,
-          displayName: user2.displayName,
-        },
-      },
-      {
-        socket: socket2,
-        event: "user_left",
-        message: {
-          userId: user2.id,
-          displayName: user2.displayName,
-        },
-      },
-      {
-        socket: socket2,
-        event: "user_session_lobby_removed",
-      },
+    const socketEvents = await Promise.all([
+      waitForSocketEvent(socket2, "user_session_updated"),
+      waitForSocketEvent(socket1, "user_session_updated"),
     ]);
+    expect(socketEvents[0].data).toEqual({
+      session: {
+        lobby: {},
+      },
+      event_name: "user_session_lobby_removed",
+    });
+
+    expect(socketEvents[1].data).toEqual({
+      session: {
+        lobby: {
+          id: userSession1!.lobbyId!,
+          name: "Test Lobby",
+          owner: {
+            id: user1.id,
+            displayName: user1.displayName,
+            isReady: false,
+            joinedAt: expect.any(String),
+          },
+          users: [],
+          createdAt: expect.any(String),
+          updatedAt: expect.any(String),
+        },
+      },
+      event_name: "user_left",
+    });
 
     const sessionId2 = await userSessionStore.getUserActiveSession(user2.id);
     if (!sessionId2) {

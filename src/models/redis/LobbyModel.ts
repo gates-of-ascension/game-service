@@ -44,7 +44,7 @@ export class LobbyModel extends BaseRedisModel<LobbySession> {
     return JSON.parse(data) as LobbySession;
   }
 
-  async update(id: string, data: LobbySession): Promise<void> {
+  async update(id: string, data: LobbySession): Promise<LobbySession> {
     const updatedLobby = {
       ...data,
       updatedAt: new Date(),
@@ -53,6 +53,8 @@ export class LobbyModel extends BaseRedisModel<LobbySession> {
     await this.redisClient.set(this.getKey(id), JSON.stringify(updatedLobby), {
       EX: this.defaultTTL,
     });
+
+    return updatedLobby;
   }
 
   async delete(id: string): Promise<void> {
@@ -100,14 +102,13 @@ export class LobbyModel extends BaseRedisModel<LobbySession> {
   async removeUser(
     lobbyId: string,
     userId: string,
-  ): Promise<{ lobby: LobbySession | null; isLobbyDeleted: boolean }> {
+  ): Promise<LobbySession | null> {
     const lobby = await this.get(lobbyId);
-    let isLobbyDeleted = false;
     if (!lobby) {
       this.logger.warn(
         `Lobby with id (${lobbyId}) not found, skipping user removal...`,
       );
-      return { lobby: null, isLobbyDeleted };
+      return null;
     }
 
     if (lobby.owner.id === userId) {
@@ -119,39 +120,13 @@ export class LobbyModel extends BaseRedisModel<LobbySession> {
         await this.update(lobbyId, lobby);
       } else {
         await this.delete(lobbyId);
-        isLobbyDeleted = true;
+        return null;
       }
     } else {
       lobby.users = lobby.users.filter((u) => u.id !== userId);
       await this.update(lobbyId, lobby);
     }
 
-    return { lobby, isLobbyDeleted };
-  }
-
-  async setUserReady(
-    lobbyId: string,
-    userId: string,
-    ready: boolean,
-  ): Promise<LobbySession> {
-    const lobby = await this.get(lobbyId);
-    if (!lobby) throw new Error(`Lobby with id (${lobbyId}) not found`);
-
-    if (lobby.owner.id === userId) {
-      lobby.owner.isReady = ready;
-      await this.update(lobbyId, lobby);
-      return lobby;
-    }
-
-    const userIndex = lobby.users.findIndex((u) => u.id === userId);
-    if (userIndex === -1)
-      throw new Error(
-        `User with id (${userId}) not found in lobby with id (${lobbyId})`,
-      );
-
-    lobby.users[userIndex].isReady = ready;
-
-    await this.update(lobbyId, lobby);
     return lobby;
   }
 }
