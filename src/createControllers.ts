@@ -9,6 +9,7 @@ import GameController from "./controllers/gameController";
 import { LobbyModel } from "./models/redis/LobbyModel";
 import { GameModel } from "./models/redis/GameModel";
 import { UserSessionStore } from "./models/redis/UserSessionStore";
+import { GameService } from "./services/GameService";
 export interface Controllers {
   usersController: UsersController;
   cardsController: CardsController;
@@ -39,9 +40,18 @@ export default async function createControllers(params: {
     redisClient,
     userSessionStore,
   );
+  const gameService = new GameService({
+    redisGameStore: gameModel,
+    logger,
+    sequelize,
+  });
   const cardsController = new CardsController(logger);
   const userDecksController = new UserDecksController(logger, sequelize);
-  const lobbyController = new LobbyController(logger, lobbyModel, gameModel);
+  const lobbyController = new LobbyController({
+    logger,
+    lobbyModel,
+    gameService: gameService,
+  });
   const gameController = new GameController(logger, gameModel);
   return {
     usersController,

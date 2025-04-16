@@ -7,7 +7,7 @@ import { GameSession, GameSessionUser } from "../../websockets/types";
 export type CreateGameOptions = {
   lobbyId: string;
   players: GameSessionUser[];
-  gameData: Record<string, string>;
+  gameData: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -15,6 +15,31 @@ export type CreateGameOptions = {
 export class GameModel extends BaseRedisModel<GameSession> {
   constructor(redisClient: RedisClient, logger: BaseLogger) {
     super(redisClient, "game", logger);
+  }
+
+  async setGameActive(gameId: string, active: boolean): Promise<void> {
+    if (active) {
+      await this.redisClient.sAdd("active_games", gameId);
+    } else {
+      await this.redisClient.sRem("active_games", gameId);
+    }
+  }
+
+  async getActiveGames(): Promise<{ id: string; players: string[] }[]> {
+    const activeGames = await this.redisClient.sMembers("active_games");
+    if (activeGames.length === 0) return [];
+    const gamesData = await this.redisClient.mGet(
+      activeGames.map((id) => this.getKey(id)),
+    );
+    return gamesData
+      .filter((data) => data !== null)
+      .map((data) => {
+        const game = JSON.parse(data) as GameSession;
+        return {
+          id: game.id,
+          players: game.players.map((p) => p.id),
+        };
+      });
   }
 
   async create(game: CreateGameOptions): Promise<GameSession> {
@@ -26,7 +51,7 @@ export class GameModel extends BaseRedisModel<GameSession> {
       this.getKey(createdGame.id),
       JSON.stringify(createdGame),
     );
-    return createdGame;
+    return createdGame as GameSession;
   }
 
   async get(id: string): Promise<GameSession | null> {

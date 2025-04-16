@@ -3,16 +3,24 @@ import { ApiError } from "../middleware/apiError";
 import { LobbyModel } from "../models/redis/LobbyModel";
 import BaseLogger from "../utils/logger";
 import { CreateLobbyOptions, SocketError } from "../websockets/types";
-import { GameModel } from "../models/redis/GameModel";
+import { GameService } from "../services/GameService";
 
 const DEFAULT_MAX_USERS = 1;
 
 export default class LobbyController {
-  constructor(
-    private readonly logger: BaseLogger,
-    private readonly lobbyModel: LobbyModel,
-    private readonly gameModel: GameModel,
-  ) {}
+  private readonly logger: BaseLogger;
+  private readonly lobbyModel: LobbyModel;
+  private readonly gameService: GameService;
+
+  constructor(options: {
+    logger: BaseLogger;
+    lobbyModel: LobbyModel;
+    gameService: GameService;
+  }) {
+    this.logger = options.logger;
+    this.lobbyModel = options.lobbyModel;
+    this.gameService = options.gameService;
+  }
 
   async getActiveLobbies() {
     let lobbies;
@@ -240,7 +248,7 @@ export default class LobbyController {
 
     let createdGame;
     try {
-      createdGame = await this.gameModel.create(gameData);
+      createdGame = await this.gameService.createGame(gameData);
     } catch (error) {
       throw new SocketError("server_error", `Error starting game: (${error})`);
     }
@@ -251,6 +259,6 @@ export default class LobbyController {
       throw new SocketError("server_error", `Error starting game: (${error})`);
     }
 
-    return { game: createdGame, secondUserInLobby: lobby.users[0].id };
+    return { game: createdGame };
   }
 }

@@ -220,18 +220,14 @@ class LobbyChannel extends BaseChannel<LobbyChannelServerToClientEvents> {
       this.logger.debug(
         `User (${session.user.id}) started game (${session.lobbyId})`,
       );
-      const { game, secondUserInLobby } =
-        await this.lobbyController.startGame(session);
+      const { game } = await this.lobbyController.startGame(session);
       this.emitToRoom(session.lobbyId, "user_session_updated", {
         session: {
           game,
         },
         event_name: "game_started",
       });
-      this.emitToRoom(secondUserInLobby, "user_session_updated", {
-        session: { game },
-        event_name: "game_started",
-      });
+      this.joinRoom(socket, game.id);
     } catch (error) {
       this.handleError(socket, error as Error | SocketError);
     }
