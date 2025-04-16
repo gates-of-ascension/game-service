@@ -8,6 +8,9 @@ import BaseLogger from "./utils/logger";
 import { createClient } from "redis";
 import { LobbyModel } from "./models/redis/LobbyModel";
 import { GameModel } from "./models/redis/GameModel";
+import { Game } from "./models/postgres/Game";
+import { GamePlayer } from "./models/postgres/GamePlayer";
+import { GameStateHistory } from "./models/postgres/GameStateHistory";
 
 export type InitPostgresDatabaseOptions = {
   logger: BaseLogger;
@@ -41,7 +44,15 @@ export async function initPostgresDatabase(
     user: databaseInfo.user,
     password: databaseInfo.password,
     database: databaseInfo.database,
-    models: [User, UserDeck, UserDeckCard, Card],
+    models: [
+      User,
+      UserDeck,
+      UserDeckCard,
+      Card,
+      Game,
+      GamePlayer,
+      GameStateHistory,
+    ],
     schema: "public",
     define: {
       noPrimaryKey: true,
