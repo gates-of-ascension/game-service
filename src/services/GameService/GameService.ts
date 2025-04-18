@@ -1,11 +1,11 @@
 import { Sequelize } from "@sequelize/core";
-import { GameModel as RedisGameStore } from "../models/redis/GameModel";
-import BaseLogger from "../utils/logger";
-import { formatSequelizeError } from "../utils/sequelizeErrorHelper";
-import { Game as postgresGameModel } from "../models/postgres/Game";
-import { GamePlayer as postgresGamePlayerModel } from "../models/postgres/GamePlayer";
-import { GameStateHistory as postgresGameStateHistoryModel } from "../models/postgres/GameStateHistory";
-import { Game } from "./components/Game";
+import { GameModel as RedisGameStore } from "../../models/redis/GameModel";
+import BaseLogger from "../../utils/logger";
+import { formatSequelizeError } from "../../utils/sequelizeErrorHelper";
+import { Game as postgresGameModel } from "../../models/postgres/Game";
+import { GamePlayer as postgresGamePlayerModel } from "../../models/postgres/GamePlayer";
+import { GameStateHistory as postgresGameStateHistoryModel } from "../../models/postgres/GameStateHistory";
+import { Game, PlayerNumber } from "./components/Game";
 export class GameService {
   private readonly redisGameStore: RedisGameStore;
   private readonly logger: BaseLogger;
@@ -97,11 +97,11 @@ export class GameService {
           }),
         ]);
 
-        const newGame = new Game({ id: createdGame.id });
+        const newGame = new Game({ id: createdGame.id, logger: this.logger });
         await newGame.initializeGame(
           createdGame.players.map((p, index) => ({
             id: p.id,
-            playerNumber: index + 1,
+            playerNumber: (index + 1) as PlayerNumber,
           })),
         );
 
@@ -114,5 +114,15 @@ export class GameService {
       console.error(errorResponse);
       throw errorResponse;
     }
+  }
+
+  async debugDamageEnemyPlayer(gameId: string, playerNumber: PlayerNumber) {
+    const game = this.gameIdToGameMap.get(gameId);
+    if (!game) {
+      throw new Error("Game not found");
+    }
+    return game.debugDamageEnemyPlayer({
+      playerNumber,
+    });
   }
 }

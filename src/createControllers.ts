@@ -9,7 +9,7 @@ import GameController from "./controllers/gameController";
 import { LobbyModel } from "./models/redis/LobbyModel";
 import { GameModel } from "./models/redis/GameModel";
 import { UserSessionStore } from "./models/redis/UserSessionStore";
-import { GameService } from "./services/GameService";
+import { GameService } from "./services/GameService/GameService";
 export interface Controllers {
   usersController: UsersController;
   cardsController: CardsController;
@@ -52,7 +52,7 @@ export default async function createControllers(params: {
     lobbyModel,
     gameService: gameService,
   });
-  const gameController = new GameController(logger, gameModel);
+  const gameController = new GameController(logger, gameModel, gameService);
   return {
     usersController,
     cardsController,

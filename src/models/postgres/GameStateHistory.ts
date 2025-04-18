@@ -9,7 +9,7 @@ import type { InferAttributes, InferCreationAttributes } from "@sequelize/core";
 
 @Table({
   tableName: "game_state_history",
-  timestamps: true,
+  timestamps: false,
   underscored: true,
 })
 export class GameStateHistory extends Model<

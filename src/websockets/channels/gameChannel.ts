@@ -8,6 +8,8 @@ import {
   SocketError,
 } from "../types";
 import LobbyController from "../../controllers/lobbyController";
+import { PlayerNumber } from "../../services/GameService/components/Game";
+
 class GameChannel extends BaseChannel<GameChannelServerToClientEvents> {
   private gameController: GameController;
   private lobbyController: LobbyController;
@@ -27,6 +29,25 @@ class GameChannel extends BaseChannel<GameChannelServerToClientEvents> {
     socket.on("leave_current_game", () => {
       this.handleLeaveCurrentGame(socket);
     });
+
+    socket.on(
+      "debug_damage_enemy_player",
+      (gameId: string, playerNumber: PlayerNumber) => {
+        this.handleDebugDamageEnemyPlayer(socket, gameId, playerNumber);
+      },
+    );
+  }
+
+  private async handleDebugDamageEnemyPlayer(
+    socket: GameChannelSocket,
+    gameId: string,
+    playerNumber: PlayerNumber,
+  ) {
+    try {
+      await this.gameController.debugDamageEnemyPlayer(gameId, playerNumber);
+    } catch (error) {
+      this.handleError(socket, error as Error | SocketError);
+    }
   }
 
   private async handleLeaveCurrentGame(socket: GameChannelSocket) {

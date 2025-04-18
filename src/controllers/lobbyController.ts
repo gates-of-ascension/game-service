@@ -3,7 +3,7 @@ import { ApiError } from "../middleware/apiError";
 import { LobbyModel } from "../models/redis/LobbyModel";
 import BaseLogger from "../utils/logger";
 import { CreateLobbyOptions, SocketError } from "../websockets/types";
-import { GameService } from "../services/GameService";
+import { GameService } from "../services/GameService/GameService";
 
 const DEFAULT_MAX_USERS = 1;
 

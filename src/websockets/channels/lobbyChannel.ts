@@ -160,6 +160,7 @@ class LobbyChannel extends BaseChannel<LobbyChannelServerToClientEvents> {
           event_name: "user_session_lobby_removed",
         });
       }
+      this.leaveRoom(socket, lobby.id);
 
       this.emitToRoom(lobby.id, "user_session_updated", {
         session: {
@@ -167,7 +168,6 @@ class LobbyChannel extends BaseChannel<LobbyChannelServerToClientEvents> {
         },
         event_name: "user_left",
       });
-      this.leaveRoom(socket, lobby.id);
     } catch (error) {
       this.handleError(socket, error as Error | SocketError);
     }

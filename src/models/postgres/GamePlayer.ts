@@ -13,7 +13,7 @@ import type {
 
 @Table({
   tableName: "game_players",
-  timestamps: true,
+  timestamps: false,
   underscored: true,
 })
 export class GamePlayer extends Model<

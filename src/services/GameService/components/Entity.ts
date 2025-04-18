@@ -1,3 +1,7 @@
+export type EntityProperties = {
+  [K in keyof Entity]: Entity[K];
+};
+
 export class Entity {
   public id: string;
   public position: [number, number];
