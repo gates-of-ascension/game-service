@@ -1,11 +1,11 @@
 export type PlayerProperties = {
-  id: number;
+  id: string;
   name: string;
   mana: number;
 };
 
 export class Player {
-  public id: number;
+  public id: string;
   public name: string;
   public mana: number;
 

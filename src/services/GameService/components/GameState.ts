@@ -16,7 +16,7 @@ export class GameState {
   public gameId: string;
   public board: Board;
   public turn: number;
-  public currentPlayerNumber: number;
+  public currentPlayerNumber: PlayerNumber;
   public winnerId: string | null;
   public loserId: string | null;
   private logger: BaseLogger;
@@ -37,11 +37,13 @@ export class GameState {
   }
 
   async createInitialPlayers(
-    player1Options: { id: string },
-    player2Options: { id: string },
+    player1Options: { id: number },
+    player2Options: { id: number },
   ) {
+    const player1Id = `pid-${player1Options.id}`;
+    const player2Id = `pid-${player2Options.id}`;
     const player1Entity = new Entity({
-      id: player1Options.id,
+      id: player1Id,
       health: 30,
       maxHealth: 30,
       attack: 0,
@@ -50,7 +52,7 @@ export class GameState {
     });
 
     const player2Entity = new Entity({
-      id: player2Options.id,
+      id: player2Id,
       health: 30,
       maxHealth: 30,
       attack: 0,
@@ -59,13 +61,13 @@ export class GameState {
     });
 
     const player1 = new Player({
-      id: parseInt(player1Options.id),
+      id: player1Id,
       name: "Player 1",
       mana: 0,
     });
 
     const player2 = new Player({
-      id: parseInt(player2Options.id),
+      id: player2Id,
       name: "Player 2",
       mana: 0,
     });
@@ -77,8 +79,8 @@ export class GameState {
 
   async initializeGameState(gamePlayers: GamePlayerCreationOptions[]) {
     const { player1Entity, player2Entity } = await this.createInitialPlayers(
-      { id: gamePlayers[0].playerNumber.toString() },
-      { id: gamePlayers[1].playerNumber.toString() },
+      { id: gamePlayers[0].playerNumber },
+      { id: gamePlayers[1].playerNumber },
     );
 
     await this.board.initializeBoard(player1Entity, player2Entity);
@@ -89,8 +91,8 @@ export class GameState {
     const player2Entity = await this.board.getPlayerEntity(2);
 
     if (player1Entity.health <= 0) {
-      this.winnerId = player2Entity.id;
-      this.loserId = player1Entity.id;
+      this.winnerId = player2Entity.id.toString();
+      this.loserId = player1Entity.id.toString();
       this.stateChangeManager.processActionStateChanges({
         actionType: "game_over",
         winnerId: this.winnerId,
@@ -99,8 +101,8 @@ export class GameState {
     }
 
     if (player2Entity.health <= 0) {
-      this.winnerId = player1Entity.id;
-      this.loserId = player2Entity.id;
+      this.winnerId = player1Entity.id.toString();
+      this.loserId = player2Entity.id.toString();
       this.stateChangeManager.processActionStateChanges({
         actionType: "game_over",
         winnerId: this.winnerId,
@@ -111,7 +113,7 @@ export class GameState {
     await this.processActionStateChanges("endActionValidation");
   }
 
-  async endTurn(playerNumber: number) {
+  async endTurn(playerNumber: PlayerNumber) {
     if (playerNumber !== this.currentPlayerNumber) {
       throw new NotYourTurnError(
         `Current player number is ${this.currentPlayerNumber}, but it is not your turn.`,
@@ -139,13 +141,13 @@ export class GameState {
     playerNumber: PlayerNumber,
   ): Promise<StateChanges[]> {
     const playerEntity = await this.board.getPlayerEntity(playerNumber);
-    const [x, y] = await this.board.getEntityPosition(playerEntity.id);
+    const position = playerEntity.position;
     playerEntity.health -= 10;
     this.stateChangeManager.processActionStateChanges({
       board: [
         {
-          x,
-          y,
+          x: position[0],
+          y: position[1],
           entity: {
             id: playerEntity.id,
             position: playerEntity.position,

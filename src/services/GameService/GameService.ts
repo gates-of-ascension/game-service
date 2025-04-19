@@ -6,6 +6,7 @@ import { Game as postgresGameModel } from "../../models/postgres/Game";
 import { GamePlayer as postgresGamePlayerModel } from "../../models/postgres/GamePlayer";
 import { GameStateHistory as postgresGameStateHistoryModel } from "../../models/postgres/GameStateHistory";
 import { Game, PlayerNumber } from "./components/Game";
+
 export class GameService {
   private readonly redisGameStore: RedisGameStore;
   private readonly logger: BaseLogger;
