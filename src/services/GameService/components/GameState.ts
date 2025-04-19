@@ -162,7 +162,9 @@ export class GameState {
     this.logger.info(`Debug damage enemy player ${playerNumber}`);
     await this.endActionValidation();
 
-    return this.currentResponseQueue;
+    const response = this.currentResponseQueue;
+    this.currentResponseQueue = [];
+    return response;
   }
 
   async playEffectCard(cardId: string) {
