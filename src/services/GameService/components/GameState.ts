@@ -20,8 +20,8 @@ export class GameState {
   public winnerId: string | null;
   public loserId: string | null;
   private logger: BaseLogger;
-  private stateChangeManager: StateChangesManager;
-  private currentResponseQueue: StateChanges[];
+  public stateChangeManager: StateChangesManager;
+  public currentResponseQueue: StateChanges[];
 
   constructor(options: { gameId: string; logger: BaseLogger }) {
     this.gameId = options.gameId;
