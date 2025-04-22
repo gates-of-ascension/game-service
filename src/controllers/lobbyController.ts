@@ -4,22 +4,25 @@ import { LobbyModel } from "../models/redis/LobbyModel";
 import BaseLogger from "../utils/logger";
 import { CreateLobbyOptions, SocketError } from "../websockets/types";
 import { GameService } from "../services/GameService/GameService";
-
+import { UserSessionStore } from "../models/redis/UserSessionStore";
 const DEFAULT_MAX_USERS = 1;
 
 export default class LobbyController {
   private readonly logger: BaseLogger;
   private readonly lobbyModel: LobbyModel;
   private readonly gameService: GameService;
+  private readonly userSessionStore: UserSessionStore;
 
   constructor(options: {
     logger: BaseLogger;
     lobbyModel: LobbyModel;
     gameService: GameService;
+    userSessionStore: UserSessionStore;
   }) {
     this.logger = options.logger;
     this.lobbyModel = options.lobbyModel;
     this.gameService = options.gameService;
+    this.userSessionStore = options.userSessionStore;
   }
 
   async getActiveLobbies() {
@@ -255,6 +258,15 @@ export default class LobbyController {
 
     try {
       await this.lobbyModel.setLobbyActive(session.lobbyId, false);
+    } catch (error) {
+      throw new SocketError("server_error", `Error starting game: (${error})`);
+    }
+
+    try {
+      await this.userSessionStore.setGameIdForUser(
+        lobby.users[0].id,
+        createdGame.id,
+      );
     } catch (error) {
       throw new SocketError("server_error", `Error starting game: (${error})`);
     }

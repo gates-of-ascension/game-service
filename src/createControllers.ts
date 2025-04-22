@@ -51,6 +51,7 @@ export default async function createControllers(params: {
     logger,
     lobbyModel,
     gameService: gameService,
+    userSessionStore: userSessionStore,
   });
   const gameController = new GameController(logger, gameModel, gameService);
   return {

@@ -228,6 +228,8 @@ class LobbyChannel extends BaseChannel<LobbyChannelServerToClientEvents> {
         event_name: "game_started",
       });
       this.joinRoom(socket, game.id);
+      session.gameId = game.id;
+      session.save();
     } catch (error) {
       this.handleError(socket, error as Error | SocketError);
     }
