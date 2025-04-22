@@ -53,11 +53,15 @@ export class StateChangesManager {
     return this.currentActionStateChanges;
   }
 
+  async clearCurrentActionStateChanges() {
+    this.currentActionStateChanges = this.initalizeActionStateChanges();
+  }
+
   getCurrentTurnStateChanges() {
     return this.currentTurnStateChanges;
   }
 
-  async processActionStateChanges(stateChanges: StateChanges) {
+  async recordActionStateChanges(stateChanges: StateChanges) {
     this.currentActionStateChanges.actionType = stateChanges.actionType;
 
     if (stateChanges.board) {

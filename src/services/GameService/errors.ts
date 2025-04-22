@@ -18,3 +18,12 @@ export class GameOverError extends Error {
     this.name = "GameOverError";
   }
 }
+
+export class CouldNotProcessActionStateChangesError extends Error {
+  public details: Record<string, unknown>;
+  constructor(message: string, details: Record<string, unknown>) {
+    super(message);
+    this.name = "CouldNotProcessActionStateChangesError";
+    this.details = details;
+  }
+}

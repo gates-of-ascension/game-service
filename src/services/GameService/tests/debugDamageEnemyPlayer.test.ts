@@ -6,10 +6,23 @@ describe("debugDamageEnemyPlayer", () => {
     const gameState = game.gameState;
     const board = gameState.board;
     const player2Entity = await board.getPlayerEntity(2);
+    const player2EntityCopy = { ...player2Entity };
 
-    await gameState.debugDamageEnemyPlayer(2);
+    const stateChanges = await gameState.debugDamageEnemyPlayer(2);
 
-    expect(player2Entity.health).toBe(20);
+    expect({ ...player2Entity }).toEqual({
+      ...player2EntityCopy,
+      health: player2EntityCopy.health - 10,
+    });
+    expect(stateChanges.length).toBe(1);
+    expect(stateChanges[0].actionType).toBe("debug_damage_enemy_player");
+    expect(stateChanges[0].board).toEqual([
+      {
+        x: player2EntityCopy.position[0],
+        y: player2EntityCopy.position[1],
+        entity: { ...player2Entity },
+      },
+    ]);
     expect(gameState.currentResponseQueue.length).toBe(0);
   });
 

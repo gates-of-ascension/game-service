@@ -3,7 +3,10 @@ import { Board } from "./Board";
 import { Entity } from "./Entity";
 import { GamePlayerCreationOptions, PlayerNumber } from "./Game";
 import BaseLogger from "../../../utils/logger";
-import { NotYourTurnError } from "../errors";
+import {
+  NotYourTurnError,
+  CouldNotProcessActionStateChangesError,
+} from "../errors";
 import { StateChanges, StateChangesManager } from "./StateChangesManager";
 
 export type ActionResult = {
@@ -93,7 +96,7 @@ export class GameState {
     if (player1Entity.health <= 0) {
       this.winnerId = player2Entity.id.toString();
       this.loserId = player1Entity.id.toString();
-      this.stateChangeManager.processActionStateChanges({
+      await this.processActionStateChanges({
         actionType: "game_over",
         winnerId: this.winnerId,
         loserId: this.loserId,
@@ -103,14 +106,12 @@ export class GameState {
     if (player2Entity.health <= 0) {
       this.winnerId = player1Entity.id.toString();
       this.loserId = player2Entity.id.toString();
-      this.stateChangeManager.processActionStateChanges({
+      await this.processActionStateChanges({
         actionType: "game_over",
         winnerId: this.winnerId,
         loserId: this.loserId,
       });
     }
-
-    await this.processActionStateChanges("endActionValidation");
   }
 
   async endTurn(playerNumber: PlayerNumber) {
@@ -126,14 +127,20 @@ export class GameState {
     this.logger.info(`Ending turn ${this.turn}`);
   }
 
-  async processActionStateChanges(actionName: string) {
+  async processActionStateChanges(stateChanges: StateChanges) {
+    await this.stateChangeManager.recordActionStateChanges(stateChanges);
     const currentActionStateChanges =
       this.stateChangeManager.getCurrentActionStateChanges();
     if (currentActionStateChanges) {
       this.currentResponseQueue.push(currentActionStateChanges);
-      this.stateChangeManager.initalizeActionStateChanges();
+      await this.stateChangeManager.clearCurrentActionStateChanges();
     } else {
-      this.logger.debug(`No action state changes to process for ${actionName}`);
+      throw new CouldNotProcessActionStateChangesError(
+        `Could not process action state changes for ${stateChanges.actionType}`,
+        {
+          currentActionStateChanges: currentActionStateChanges,
+        },
+      );
     }
   }
 
@@ -143,7 +150,7 @@ export class GameState {
     const playerEntity = await this.board.getPlayerEntity(playerNumber);
     const position = playerEntity.position;
     playerEntity.health -= 10;
-    this.stateChangeManager.processActionStateChanges({
+    await this.processActionStateChanges({
       board: [
         {
           x: position[0],
@@ -160,7 +167,6 @@ export class GameState {
       ],
       actionType: "debug_damage_enemy_player",
     });
-    await this.processActionStateChanges("debugDamageEnemyPlayer");
     this.logger.info(`Debug damage enemy player ${playerNumber}`);
     await this.endActionValidation();
 
