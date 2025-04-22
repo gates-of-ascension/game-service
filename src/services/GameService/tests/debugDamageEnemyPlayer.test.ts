@@ -8,7 +8,7 @@ describe("debugDamageEnemyPlayer", () => {
     const player2Entity = await board.getPlayerEntity(2);
     const player2EntityCopy = { ...player2Entity };
 
-    const stateChanges = await gameState.debugDamageEnemyPlayer(2);
+    const stateChanges = await gameState.debugDamageEnemyPlayer(1, 2);
 
     expect({ ...player2Entity }).toEqual({
       ...player2EntityCopy,
@@ -32,9 +32,9 @@ describe("debugDamageEnemyPlayer", () => {
     const board = gameState.board;
     const player2Entity = await board.getPlayerEntity(2);
 
-    await gameState.debugDamageEnemyPlayer(2);
-    await gameState.debugDamageEnemyPlayer(2);
-    const stateChanges = await gameState.debugDamageEnemyPlayer(2);
+    await gameState.debugDamageEnemyPlayer(1, 2);
+    await gameState.debugDamageEnemyPlayer(1, 2);
+    const stateChanges = await gameState.debugDamageEnemyPlayer(1, 2);
 
     expect(gameState.winnerId).toBe("pid-1");
     expect(gameState.loserId).toBe("pid-2");

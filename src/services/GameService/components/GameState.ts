@@ -1,14 +1,14 @@
 import { Player } from "./Player";
 import { Board } from "./Board";
 import { Entity } from "./Entity";
-import { GamePlayerCreationOptions, PlayerNumber } from "./Game";
+import type { GamePlayerCreationOptions, PlayerNumber } from "./Game";
 import BaseLogger from "../../../utils/logger";
 import {
   NotYourTurnError,
   CouldNotProcessActionStateChangesError,
 } from "../errors";
 import { StateChanges, StateChangesManager } from "./StateChangesManager";
-
+import { checkIfValidAction } from "./decorators";
 export type ActionResult = {
   winnerId?: string | null;
   loserId?: string | null;
@@ -144,10 +144,12 @@ export class GameState {
     }
   }
 
+  @checkIfValidAction
   async debugDamageEnemyPlayer(
-    playerNumber: PlayerNumber,
+    _initiator: PlayerNumber,
+    target: PlayerNumber,
   ): Promise<StateChanges[]> {
-    const playerEntity = await this.board.getPlayerEntity(playerNumber);
+    const playerEntity = await this.board.getPlayerEntity(target);
     const position = playerEntity.position;
     playerEntity.health -= 10;
     await this.processActionStateChanges({
@@ -167,7 +169,7 @@ export class GameState {
       ],
       actionType: "debug_damage_enemy_player",
     });
-    this.logger.info(`Debug damage enemy player ${playerNumber}`);
+    this.logger.info(`Debug damage enemy player ${target}`);
     await this.endActionValidation();
 
     const response = this.currentResponseQueue;
@@ -175,14 +177,17 @@ export class GameState {
     return response;
   }
 
+  @checkIfValidAction
   async playEffectCard(cardId: string) {
     console.log("playEffectCard", cardId);
   }
 
+  @checkIfValidAction
   async playEntityCard(cardId: string, targets: string[]) {
     console.log("playEntityCard", cardId, targets);
   }
 
+  @checkIfValidAction
   async cardTargetsEntity(cardId: string, targets: string[]) {
     console.log("cardTargetsEntity", cardId, targets);
   }
