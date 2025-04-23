@@ -1,4 +1,4 @@
-import { Server, ServerOptions } from "socket.io";
+import { Server, ServerOptions, Socket } from "socket.io";
 import http from "http";
 import GameChannel from "./channels/gameChannel";
 import LobbyChannel from "./channels/lobbyChannel";
@@ -27,6 +27,8 @@ export async function setupSocketIO(params: {
     userSessionStore,
     sessionMiddleware,
   } = params;
+
+  const userIdToSockets = new Map<string, Socket>();
 
   const ioOptions: Partial<ServerOptions> = {};
   ioOptions.cors = {
@@ -103,6 +105,7 @@ export async function setupSocketIO(params: {
       gameChannel.registerEvents(socket);
 
       await userSessionStore.setUserActiveSocket(userId, socket.id);
+      userIdToSockets.set(userId, socket);
       logger.info(`User socket connected: (${socket.id}) (User ID: ${userId})`);
     } catch (error) {
       logger.error(`Error during socket connection setup: ${error}`);
@@ -121,6 +124,7 @@ export async function setupSocketIO(params: {
 
       try {
         await userSessionStore.deleteUserActiveSocket(userId);
+        userIdToSockets.delete(userId);
       } catch (error) {
         logger.error(`Error deleting user socket (${username}): (${error})`);
       }
@@ -149,5 +153,6 @@ export async function setupSocketIO(params: {
       lobbyChannel,
       gameChannel,
     },
+    userIdToSockets,
   };
 }

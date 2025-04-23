@@ -54,7 +54,7 @@ export default async function setupTestEnvironment() {
 
   const server = http.createServer(app);
 
-  setupSocketIO({
+  const { userIdToSockets } = await setupSocketIO({
     httpServer: server,
     logger,
     redisClient,
@@ -63,6 +63,8 @@ export default async function setupTestEnvironment() {
     gameController: controllers.gameController,
     userSessionStore,
   });
+
+  controllers.lobbyController.setUserIdToSockets(userIdToSockets);
 
   return {
     logger,

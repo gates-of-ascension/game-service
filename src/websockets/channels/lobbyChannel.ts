@@ -152,14 +152,14 @@ class LobbyChannel extends BaseChannel<LobbyChannelServerToClientEvents> {
           event_name: "user_session_lobby_removed",
         });
         return;
-      } else {
-        socket.emit("user_session_updated", {
-          session: {
-            lobby: {},
-          },
-          event_name: "user_session_lobby_removed",
-        });
       }
+      socket.emit("user_session_updated", {
+        session: {
+          lobby: {},
+        },
+        event_name: "user_session_lobby_removed",
+      });
+
       this.leaveRoom(socket, lobby.id);
 
       this.emitToRoom(lobby.id, "user_session_updated", {

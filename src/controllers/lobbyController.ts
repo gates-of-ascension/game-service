@@ -5,6 +5,7 @@ import BaseLogger from "../utils/logger";
 import { CreateLobbyOptions, SocketError } from "../websockets/types";
 import { GameService } from "../services/GameService/GameService";
 import { UserSessionStore } from "../models/redis/UserSessionStore";
+import { Socket } from "socket.io";
 const DEFAULT_MAX_USERS = 1;
 
 export default class LobbyController {
@@ -12,6 +13,7 @@ export default class LobbyController {
   private readonly lobbyModel: LobbyModel;
   private readonly gameService: GameService;
   private readonly userSessionStore: UserSessionStore;
+  private userIdToSockets: Map<string, Socket>;
 
   constructor(options: {
     logger: BaseLogger;
@@ -23,6 +25,11 @@ export default class LobbyController {
     this.lobbyModel = options.lobbyModel;
     this.gameService = options.gameService;
     this.userSessionStore = options.userSessionStore;
+    this.userIdToSockets = new Map();
+  }
+
+  setUserIdToSockets(userIdToSockets: Map<string, Socket>) {
+    this.userIdToSockets = userIdToSockets;
   }
 
   async getActiveLobbies() {
@@ -263,10 +270,11 @@ export default class LobbyController {
     }
 
     try {
-      await this.userSessionStore.setGameIdForUser(
-        lobby.users[0].id,
-        createdGame.id,
-      );
+      const userSocket = this.userIdToSockets.get(lobby.users[0].id);
+      if (userSocket) {
+        userSocket.request.session.gameId = createdGame.id;
+        userSocket.request.session.save();
+      }
     } catch (error) {
       throw new SocketError("server_error", `Error starting game: (${error})`);
     }

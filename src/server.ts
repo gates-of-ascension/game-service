@@ -50,7 +50,7 @@ export default async function createServer() {
   const app = await createApp(logger, controllers, sessionMiddleware);
   const server = http.createServer(app);
 
-  setupSocketIO({
+  const { userIdToSockets } = await setupSocketIO({
     httpServer: server,
     logger,
     redisClient,
@@ -59,6 +59,8 @@ export default async function createServer() {
     gameController: controllers.gameController,
     userSessionStore,
   });
+
+  controllers.lobbyController.setUserIdToSockets(userIdToSockets);
 
   return server;
 }

@@ -27,7 +27,7 @@ class GameChannel extends BaseChannel<GameChannelServerToClientEvents> {
 
   async registerEvents(socket: GameChannelSocket) {
     socket.on("leave_current_game", () => {
-      this.handleLeaveCurrentGame(socket);
+      this.removeUserSessionGame(socket);
     });
 
     socket.on(
@@ -50,35 +50,38 @@ class GameChannel extends BaseChannel<GameChannelServerToClientEvents> {
     }
   }
 
-  private async handleLeaveCurrentGame(socket: GameChannelSocket) {
+  private async removeUserSessionGame(socket: GameChannelSocket) {
     const session = socket.request.session;
     try {
-      // this.logger.debug(
-      //   `User (${session.user.username}) is leaving current game (${session.gameId})`,
-      // );
-      // const gameLeaveResult =
-      //   await this.gameController.leaveCurrentGame(session);
-      // session.gameId = gameLeaveResult.gameId;
-      // session.save();
-      // this.emitToRoom(gameLeaveResult.gameId, "player_left", {
-      //   gameId: gameLeaveResult.gameId,
-      //   playerId: session.user.id,
-      // });
-      // socket.emit("user_session_game_removed");
-
-      // this.logger.debug(
-      //   `User (${session.user.username}) is now leaving the lobby (${session.lobbyId})`,
-      // );
-      // const lobbyLeaveResult =
-      //   await this.lobbyController.removeUserSessionLobby(session);
-      // session.lobbyId = lobbyLeaveResult.lobbyId;
-      // session.save();
-      // this.emitToRoom(lobbyLeaveResult.lobbyId, "user_left", {
-      //   userId: session.user.id,
-      //   displayName: session.user.displayName,
-      // });
+      const game = await this.gameController.removeUserSessionGame(session);
       session.save();
-      // socket.emit("user_session_lobby_removed");
+
+      // If no game was returned, it means either:
+      // 1. The game didn't exist
+      // 2. The game was deleted (owner left with no other users)
+      if (!game) {
+        socket.emit("user_session_updated", {
+          session: {
+            game: {},
+          },
+          event_name: "user_session_game_removed",
+        });
+        return;
+      }
+      socket.emit("user_session_updated", {
+        session: {
+          game: {},
+        },
+        event_name: "user_session_game_removed",
+      });
+      this.leaveRoom(socket, game.id);
+
+      this.emitToRoom(game.id, "user_session_updated", {
+        session: {
+          game,
+        },
+        event_name: "user_left",
+      });
     } catch (error) {
       this.handleError(socket, error as Error | SocketError);
     }

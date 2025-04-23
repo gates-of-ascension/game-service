@@ -77,17 +77,28 @@ export class GameModel extends BaseRedisModel<GameSession> {
     await this.redisClient.del(this.getKey(id));
   }
 
-  async removePlayer(gameId: string, playerId: string): Promise<void> {
+  async removePlayer(
+    gameId: string,
+    playerId: string,
+  ): Promise<GameSession | null> {
     const game = await this.get(gameId);
-    if (!game) throw new Error(`Game with id (${gameId}) not found`);
+    if (!game) {
+      this.logger.warn(
+        `Game with id (${gameId}) not found, skipping player removal...`,
+      );
+      return null;
+    }
 
     game.players = game.players.filter((p) => p.id !== playerId);
 
     if (game.players.length === 0) {
       this.logger.warn(`Game with id (${gameId}) is now empty, deleting...`);
       await this.delete(gameId);
+      return null;
     } else {
       await this.update(gameId, game);
     }
+
+    return game;
   }
 }

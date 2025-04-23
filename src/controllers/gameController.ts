@@ -16,20 +16,19 @@ export default class GameController {
     return;
   }
 
-  async leaveCurrentGame(session: Session) {
+  async removeUserSessionGame(session: Session) {
     if (session.gameId === "none") {
-      throw new SocketError("client_error", "User is not in a game");
+      throw new SocketError(
+        "client_error",
+        "Cannot remove user from game, user is not in a game",
+      );
     }
 
     const gameId = session.gameId;
-    try {
-      await this.gameModel.removePlayer(gameId, session.user.id);
-    } catch (error) {
-      throw new SocketError("server_error", `Error leaving game: (${error})`);
-    }
+    const game = await this.gameModel.removePlayer(gameId, session.user.id);
 
     session.gameId = "none";
-    return { session, gameId };
+    return game;
   }
 
   async debugDamageEnemyPlayer(gameId: string, playerNumber: PlayerNumber) {
