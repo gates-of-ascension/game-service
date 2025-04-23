@@ -33,10 +33,10 @@ export default class GameController {
 
   async debugDamageEnemyPlayer(gameId: string, playerNumber: PlayerNumber) {
     try {
-      return await this.gameService.debugDamageEnemyPlayer(
-        gameId,
-        playerNumber,
-      );
+      return await this.gameService.debugDamageEnemyPlayer(gameId, {
+        initiator: playerNumber,
+        target: playerNumber === 1 ? 2 : 1,
+      });
     } catch (error) {
       throw new SocketError(
         "server_error",

@@ -23,10 +23,15 @@ export type CardTargetsEntityAction = {
 };
 
 export type DebugDamageEnemyPlayerAction = {
-  playerNumber: PlayerNumber;
+  initiator: PlayerNumber;
+  target: PlayerNumber;
 };
 
 export type EndTurnAction = {
+  playerNumber: PlayerNumber;
+};
+
+export type LeaveGameAction = {
   playerNumber: PlayerNumber;
 };
 
@@ -34,6 +39,7 @@ export class Game {
   public id: string;
   public gameState: GameState;
   public playerNumberToIdMap: Map<PlayerNumber, string>;
+  public playerIdToPlayerNumberMap: Map<string, PlayerNumber>;
   private logger: BaseLogger;
 
   constructor(options: { id: string; logger: BaseLogger }) {
@@ -41,11 +47,13 @@ export class Game {
     this.id = options.id;
     this.gameState = new GameState({ gameId: this.id, logger: this.logger });
     this.playerNumberToIdMap = new Map();
+    this.playerIdToPlayerNumberMap = new Map();
   }
 
   async initializeGame(gamePlayers: GamePlayerCreationOptions[]) {
     gamePlayers.forEach((player) => {
       this.playerNumberToIdMap.set(player.playerNumber, player.id);
+      this.playerIdToPlayerNumberMap.set(player.id, player.playerNumber);
     });
     this.logger.info(`Initializing game ${this.id}`);
     await this.gameState.initializeGameState(gamePlayers);
@@ -65,10 +73,21 @@ export class Game {
   }
 
   async debugDamageEnemyPlayer(action: DebugDamageEnemyPlayerAction) {
-    await this.gameState.debugDamageEnemyPlayer(action.playerNumber);
+    await this.gameState.debugDamageEnemyPlayer(
+      action.initiator,
+      action.target,
+    );
   }
 
   async endTurn(action: EndTurnAction) {
     await this.gameState.endTurn(action.playerNumber);
+  }
+
+  async leaveGame(playerId: string) {
+    const playerNumber = this.playerIdToPlayerNumberMap.get(playerId);
+    if (!playerNumber) {
+      throw new Error("Player not found");
+    }
+    return await this.gameState.leaveGame(playerNumber);
   }
 }

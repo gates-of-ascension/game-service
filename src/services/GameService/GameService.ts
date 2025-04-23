@@ -5,7 +5,12 @@ import { formatSequelizeError } from "../../utils/sequelizeErrorHelper";
 import { Game as postgresGameModel } from "../../models/postgres/Game";
 import { GamePlayer as postgresGamePlayerModel } from "../../models/postgres/GamePlayer";
 import { GameStateHistory as postgresGameStateHistoryModel } from "../../models/postgres/GameStateHistory";
-import { Game, PlayerNumber } from "./components/Game";
+import {
+  Game,
+  PlayerNumber,
+  DebugDamageEnemyPlayerAction,
+  LeaveGameAction,
+} from "./components/Game";
 
 export class GameService {
   private readonly redisGameStore: RedisGameStore;
@@ -117,13 +122,25 @@ export class GameService {
     }
   }
 
-  async debugDamageEnemyPlayer(gameId: string, playerNumber: PlayerNumber) {
+  async debugDamageEnemyPlayer(
+    gameId: string,
+    debugDamageEnemyPlayerAction: DebugDamageEnemyPlayerAction,
+  ) {
     const game = this.gameIdToGameMap.get(gameId);
     if (!game) {
       throw new Error("Game not found");
     }
     return game.debugDamageEnemyPlayer({
-      playerNumber,
+      initiator: debugDamageEnemyPlayerAction.initiator,
+      target: debugDamageEnemyPlayerAction.target,
     });
+  }
+
+  async leaveGame(gameId: string, playerId: string) {
+    const game = this.gameIdToGameMap.get(gameId);
+    if (!game) {
+      throw new Error("Game not found");
+    }
+    return game.leaveGame(playerId);
   }
 }

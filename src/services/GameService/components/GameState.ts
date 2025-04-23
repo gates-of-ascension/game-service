@@ -144,6 +144,24 @@ export class GameState {
     }
   }
 
+  async leaveGame(playerNumber: PlayerNumber) {
+    const loserEntity = await this.board.getPlayerEntity(playerNumber);
+    const winnerEntity = await this.board.getPlayerEntity(
+      playerNumber === 1 ? 2 : 1,
+    );
+    this.winnerId = winnerEntity.id;
+    this.loserId = loserEntity.id;
+    await this.processActionStateChanges({
+      actionType: "game_over",
+      winnerId: this.winnerId,
+      loserId: this.loserId,
+    });
+
+    const response = this.currentResponseQueue;
+    this.currentResponseQueue = [];
+    return response;
+  }
+
   @checkIfValidAction
   async debugDamageEnemyPlayer(
     _initiator: PlayerNumber,
