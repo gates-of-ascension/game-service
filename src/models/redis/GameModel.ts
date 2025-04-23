@@ -13,8 +13,11 @@ export type CreateGameOptions = {
 };
 
 export class GameModel extends BaseRedisModel<GameSession> {
+  private readonly defaultTTL: number;
+
   constructor(redisClient: RedisClient, logger: BaseLogger) {
     super(redisClient, "game", logger);
+    this.defaultTTL = 60 * 60 * 24 * 30; // 30 days
   }
 
   async setGameActive(gameId: string, active: boolean): Promise<void> {
@@ -50,6 +53,9 @@ export class GameModel extends BaseRedisModel<GameSession> {
     await this.redisClient.set(
       this.getKey(createdGame.id),
       JSON.stringify(createdGame),
+      {
+        EX: this.defaultTTL,
+      },
     );
     return createdGame as GameSession;
   }
