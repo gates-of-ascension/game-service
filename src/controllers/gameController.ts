@@ -4,6 +4,7 @@ import { SocketError } from "../websockets/types";
 import { Session } from "express-session";
 import { PlayerNumber } from "../services/GameService/components/Game";
 import { GameService } from "../services/GameService/GameService";
+import { StateChanges } from "../services/GameService/components/StateChangesManager";
 export default class GameController {
   constructor(
     private readonly logger: BaseLogger,
@@ -25,10 +26,27 @@ export default class GameController {
     }
 
     const gameId = session.gameId;
-    const game = await this.gameModel.removePlayer(gameId, session.user.id);
+    let game = null;
+    try {
+      game = await this.gameModel.removePlayer(gameId, session.user.id);
+    } catch (error) {
+      this.logger.error(`Error removing player from game: (${error})`);
+    }
+
+    let gameStateChanges: StateChanges[] = [];
+    if (game) {
+      try {
+        gameStateChanges = await this.gameService.leaveGame(
+          gameId,
+          session.user.id,
+        );
+      } catch (error) {
+        this.logger.error(`Error leaving game: (${error})`);
+      }
+    }
 
     session.gameId = "none";
-    return game;
+    return { game, gameStateChanges };
   }
 
   async debugDamageEnemyPlayer(gameId: string, playerNumber: PlayerNumber) {

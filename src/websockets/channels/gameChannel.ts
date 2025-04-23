@@ -53,7 +53,8 @@ class GameChannel extends BaseChannel<GameChannelServerToClientEvents> {
   private async removeUserSessionGame(socket: GameChannelSocket) {
     const session = socket.request.session;
     try {
-      const game = await this.gameController.removeUserSessionGame(session);
+      const { game, gameStateChanges } =
+        await this.gameController.removeUserSessionGame(session);
       session.save();
 
       // If no game was returned, it means either:
@@ -66,8 +67,14 @@ class GameChannel extends BaseChannel<GameChannelServerToClientEvents> {
           },
           event_name: "user_session_game_removed",
         });
+        socket.emit("game_state_updated", {
+          gameStateChanges,
+        });
         return;
       }
+      this.emitToRoom(game.id, "game_state_updated", {
+        gameStateChanges,
+      });
       socket.emit("user_session_updated", {
         session: {
           game: {},

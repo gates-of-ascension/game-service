@@ -9,7 +9,6 @@ import {
   Game,
   PlayerNumber,
   DebugDamageEnemyPlayerAction,
-  LeaveGameAction,
 } from "./components/Game";
 
 export class GameService {

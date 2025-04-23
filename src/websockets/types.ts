@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 import { Socket } from "socket.io";
 import { PlayerNumber } from "../services/GameService/components/Game";
+import { StateChanges } from "../services/GameService/components/StateChangesManager";
 export type SocketErrorName =
   | "client_error"
   | "server_error"
@@ -103,13 +104,15 @@ export type GameChannelServerToClientEventNames =
   | "user_left"
   | "user_session_game_removed"
   | "user_session_lobby_removed"
-  | "debug_damage_enemy_player";
+  | "debug_damage_enemy_player"
+  | "game_state_updated";
 
 export type GameChannelServerToClientEvents = {
   user_session_updated: (message: {
     session: Session;
     event_name: GameChannelServerToClientEventNames;
   }) => void;
+  game_state_updated: (message: { gameStateChanges: StateChanges[] }) => void;
   // Error events
   server_error: (error: string) => void;
   client_error: (error: string) => void;
